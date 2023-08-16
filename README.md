@@ -46,4 +46,4 @@ translate machine code back to asm.
   separated by newlines and in the following form: `opcode dst, src`
   ex: `mov ax, cx`.
 
-- `machine code <-> instruction type representation <-> asm`
+- `machine code <-> type level representation <-> asm`
