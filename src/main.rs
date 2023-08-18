@@ -37,9 +37,6 @@ fn main() {
 
     // Display.
     println!("ASM from reconstructed: {}", asm_from_inst);
-    println!(
-        "assembled: {:#b} {:#b}",
-        inst_to_raw[0], inst_to_raw[1]
-    );
+    println!("assembled: {:#b} {:#b}", inst_to_raw[0], inst_to_raw[1]);
     println!("assembled:     {:?}", inst_to_raw);
 }

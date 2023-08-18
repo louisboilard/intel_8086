@@ -22,20 +22,22 @@ type InstructionTuple = (u8, u8);
 */
 
 // MASKS FOR THE FIRST BYTE OF AN INSTRUCTION
+
 // Instruction Mask. 6 highest bits represent the instruction.
-const HIGH_6_BITS_MASK: u8 = 0b1111_1100; // 0xFC
-                                          // D Flag Mask. 7th bit.
-const D_FLAG_BITS_MASK: u8 = 0b0000_0010; // 0x02
-                                          // D Flag Mask. LSB of the first byte.
-const W_FLAG_BITS_MASK: u8 = 0b0000_0001; // 0x01
+const OPCODE_MASK: u8 = 0b1111_1100;
+// D Flag Mask. 7th bit.
+const D_FLAG_BITS_MASK: u8 = 0b0000_0010;
+// D Flag Mask. LSB of the first byte.
+const W_FLAG_BITS_MASK: u8 = 0b0000_0001;
 
 // MASKS FOR THE SECOND BYTES OF AN INSTRUCTION
+
 // Mod Flag Mask. 6 highest bits represent the instruction.
-const MOD_FLAG_BITS_MASK: u8 = 0b1100_0000; // 0xCC
-                                            // REG Flag Mask. 7th bit.
-const REG_FLAG_BITS_MASK: u8 = 0b0011_1000; // 0x38
-                                            // RM Flag Mask. bits 6-7-8
-const RM_FLAG_BITS_MASK: u8 = 0b0000_0111; // 0x07
+const MOD_FLAG_BITS_MASK: u8 = 0b1100_0000;
+// REG Flag Mask. 7th bit.
+const REG_FLAG_BITS_MASK: u8 = 0b0011_1000;
+// RM Flag Mask. bits 6-7-8
+const RM_FLAG_BITS_MASK: u8 = 0b0000_0111;
 
 /* ===============================================
 *  ===============================================
@@ -47,7 +49,7 @@ const RM_FLAG_BITS_MASK: u8 = 0b0000_0111; // 0x07
 *  ===============================================
 */
 
-/// CPU Instructions (still unsure if want to keep in enum form)
+/// CPU Instructions
 #[derive(Debug)]
 pub enum OpCode {
     /// MOV DST, SRC (copy)
@@ -59,10 +61,10 @@ pub enum OpCode {
 impl OpCode {
     /// Returns a mnemonic variant based on the byte's value.
     pub fn from_binary(val: u8) -> Option<Self> {
-        // remove the extra 2 bits from the 8bit byte, since opcode is really 6bits
+        // remove extra 2 bits from the byte, since opcode width = 6bits
         let six_bits_value: u8 = val >> 2;
         match six_bits_value {
-            // MOV is 100010 (34) with 6bits, but since we use
+            // MOV is 100010 (34) with 6bits
             34 => Some(Self::MOV),
             _ => None,
         }
@@ -79,7 +81,7 @@ impl OpCode {
     /// Returns a mnemonic variant based on asm op_code
     pub fn from_text(op_code: &str) -> Option<Self> {
         match op_code {
-            "mov" => Some(Self::MOV),
+            "mov" | "MOV" => Some(Self::MOV),
             _ => None,
         }
     }
@@ -331,7 +333,7 @@ pub struct BitFlag {
     value: u8,
 }
 
-/// Different kinds of bit flags that CPU instructions can have.
+/// CPU Flag
 pub enum Flag {
     /// 1 bit. Specifies if the REG flag represents SRC (when 0) or DST (when 1)
     D(BitFlag),
@@ -582,7 +584,7 @@ pub fn read_instruction(instruction: &[u8]) -> Result<Instruction, String> {
             INSTRUCTION_SIZE
         ));
     }
-    let instruction_value = instruction[0] & HIGH_6_BITS_MASK;
+    let instruction_value = instruction[0] & OPCODE_MASK;
     let Some(instruction_mnemonic) = OpCode::from_binary(instruction_value) else {
         return Err(format!(
             "Invalid instruction of value {} is not a known instruction.",
@@ -640,7 +642,7 @@ pub fn read_asm(asm_inst: &str) -> Result<Instruction, String> {
     let d_flag = byte_tuple.0 & D_FLAG_BITS_MASK;
     first_byte |= d_flag << 1; // 1 is pos 2 from LSB (d_flag pos)
     let w_flag = byte_tuple.0 & W_FLAG_BITS_MASK;
-    first_byte |= w_flag; // 0 is pos 1 from LSB (w_flag pos)
+    first_byte |= w_flag; // 0 is pos 1/LSB (w_flag pos)
 
     read_instruction(&[first_byte, byte_tuple.1])
 }
