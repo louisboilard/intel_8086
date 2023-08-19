@@ -681,9 +681,38 @@ mod tests {
     #[test]
     fn assemble_test() {
         let bin = include_bytes!("../data/binary/single_register_mov.txt");
-        let inst = read_instruction(bin).unwrap();
+        let inst = read_instruction(bin[0], bin[1]).unwrap();
         let bin_from_inst = inst.assemble().unwrap();
         assert_eq!(bin_from_inst, bin.to_owned());
+    }
+
+    #[test]
+    fn assemble_multiple_test() {
+        let bin = include_bytes!("../data/binary/many_register_mov.txt");
+        let instructions = read_instructions(bin).unwrap();
+        // compare all individual instructions with binary equivalent
+        let mut count = 0;
+        for i in instructions.iter() {
+            let bytes : [u8;2] = [bin[count], bin[count+1]];
+            assert_eq!(i.assemble().unwrap(), bytes);
+            count += 2;
+        }
+    }
+
+    #[test]
+    fn dissasemble_multiple_test() {
+        let bin = include_bytes!("../data/binary/many_register_mov.txt");
+        let asm = include_str!("../data/asm/many_register_mov.asm");
+
+        let instructions = read_instructions(bin).unwrap();
+
+        let mut splitted_asm = asm.lines();
+
+        // compare all individual instructions with asm equivalent
+        for inst in instructions.iter() {
+            let dissas = inst.dissasemble();
+            assert_eq!(dissas, splitted_asm.next().unwrap());
+        }
     }
 
     #[test]
