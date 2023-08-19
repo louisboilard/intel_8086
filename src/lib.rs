@@ -575,16 +575,38 @@ impl Default for Instruction {
     }
 }
 
-/// Transforms a 2 bytes raw instruction into it's type representation.
-pub fn read_instruction(instruction: &[u8]) -> Result<Instruction, String> {
-    if instruction.len() != INSTRUCTION_SIZE {
+/// Takes in an arbitrary number of 16 bits machine code instructions
+/// Returns a Vec<Instruction>
+pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String> {
+    // The number of bytes passed will always be a multiple of INSTRUCTION_SIZE
+    if instructions.len() % INSTRUCTION_SIZE != 0 {
         return Err(format!(
-            "Instruction length: {}, should be: {}",
-            instruction.len(),
+            "Invalid number of bytes: {}, instructions should be a multiple of {}",
+            instructions.len(),
             INSTRUCTION_SIZE
         ));
     }
-    let instruction_value = instruction[0] & OPCODE_MASK;
+    // instruction width == INSTRUCTION_SIZE
+    let nb_instructions = instructions.len() / INSTRUCTION_SIZE;
+
+    // TODO: check for potential usage of &[]. Box, Rc.
+    let mut instructions_vec : Vec<Instruction> = Vec::with_capacity(nb_instructions);
+
+    let mut index = 0;
+    while index < nb_instructions {
+        match read_instruction(instructions[index], instructions[index+1]) {
+            Ok(i) => instructions_vec.push(i),
+            Err(e) => return Err(e),
+        }
+        index += 2;
+    }
+
+    Ok(instructions_vec)
+
+}
+/// Transforms a 2 bytes raw instruction into it's type representation.
+pub fn read_instruction(high_byte : u8, low_byte : u8) -> Result<Instruction, String> {
+    let instruction_value = high_byte & OPCODE_MASK;
     let Some(instruction_mnemonic) = OpCode::from_binary(instruction_value) else {
         return Err(format!(
             "Invalid instruction of value {} is not a known instruction.",
@@ -596,16 +618,16 @@ pub fn read_instruction(instruction: &[u8]) -> Result<Instruction, String> {
     // Get value + shift so that the set bits are at LSB in the byte.
 
     // mod has size 2 and starts at MSB.
-    let mod_val = (instruction[1] & MOD_FLAG_BITS_MASK) >> (BYTE_LENGTH - 2);
+    let mod_val = (low_byte & MOD_FLAG_BITS_MASK) >> (BYTE_LENGTH - 2);
     // reg has size 3 and starts at pos 3 from MSB (0011_1_000)
-    let reg_val = (instruction[1] & REG_FLAG_BITS_MASK) >> 3;
+    let reg_val = (low_byte & REG_FLAG_BITS_MASK) >> 3;
     // rm has size 3 and starts at pos 6 from MSB
-    let rm_val = instruction[1] & RM_FLAG_BITS_MASK;
+    let rm_val = low_byte & RM_FLAG_BITS_MASK;
 
     Ok(Instruction::new(
         instruction_mnemonic,
-        Flag::new_d(Some(instruction[0] & D_FLAG_BITS_MASK)),
-        Flag::new_w(Some(instruction[0] & W_FLAG_BITS_MASK)),
+        Flag::new_d(Some(high_byte & D_FLAG_BITS_MASK)),
+        Flag::new_w(Some(high_byte & W_FLAG_BITS_MASK)),
         Flag::new_mod(Some(mod_val)),
         Flag::new_reg(Some(reg_val)),
         Flag::new_rm(Some(rm_val)),
@@ -644,7 +666,7 @@ pub fn read_asm(asm_inst: &str) -> Result<Instruction, String> {
     let w_flag = byte_tuple.0 & W_FLAG_BITS_MASK;
     first_byte |= w_flag; // 0 is pos 1/LSB (w_flag pos)
 
-    read_instruction(&[first_byte, byte_tuple.1])
+    read_instruction(first_byte, byte_tuple.1)
 }
 
 // ***********************************************************************
