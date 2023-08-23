@@ -590,11 +590,11 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
     let nb_instructions = instructions.len() / INSTRUCTION_SIZE;
 
     // TODO: check for potential usage of &[]. Box, Rc.
-    let mut instructions_vec : Vec<Instruction> = Vec::with_capacity(nb_instructions);
+    let mut instructions_vec: Vec<Instruction> = Vec::with_capacity(nb_instructions);
 
     let mut index = 0;
     while index < nb_instructions {
-        match read_instruction(instructions[index], instructions[index+1]) {
+        match read_instruction(instructions[index], instructions[index + 1]) {
             Ok(i) => instructions_vec.push(i),
             Err(e) => return Err(e),
         }
@@ -602,10 +602,9 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
     }
 
     Ok(instructions_vec)
-
 }
 /// Transforms a 2 bytes raw instruction into it's type representation.
-pub fn read_instruction(high_byte : u8, low_byte : u8) -> Result<Instruction, String> {
+pub fn read_instruction(high_byte: u8, low_byte: u8) -> Result<Instruction, String> {
     let instruction_value = high_byte & OPCODE_MASK;
     let Some(instruction_mnemonic) = OpCode::from_binary(instruction_value) else {
         return Err(format!(
@@ -693,7 +692,7 @@ mod tests {
         // compare all individual instructions with binary equivalent
         let mut count = 0;
         for i in instructions.iter() {
-            let bytes : [u8;2] = [bin[count], bin[count+1]];
+            let bytes: [u8; 2] = [bin[count], bin[count + 1]];
             assert_eq!(i.assemble().unwrap(), bytes);
             count += 2;
         }

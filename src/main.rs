@@ -9,7 +9,8 @@ fn main() {
     let single_register_mov = include_bytes!("../data/binary/single_register_mov.txt");
 
     // Convert raw inst to type representation
-    let inst = intel_8086::read_instruction(single_register_mov[0], single_register_mov[1]).unwrap();
+    let inst =
+        intel_8086::read_instruction(single_register_mov[0], single_register_mov[1]).unwrap();
 
     // Dissasemble
     let asm_from_inst = inst.dissasemble();
