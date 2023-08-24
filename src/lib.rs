@@ -49,6 +49,13 @@ const RM_FLAG_BITS_MASK: u8 = 0b0000_0111;
 *  ===============================================
 */
 
+#[derive(Debug)]
+pub enum OpKind {
+    ImmediateRegister,
+    RegisterToRegister,
+    UNKNOWN,
+}
+
 /// CPU Instructions
 #[derive(Debug)]
 pub enum OpCode {
@@ -60,13 +67,21 @@ pub enum OpCode {
 
 impl OpCode {
     /// Returns a mnemonic variant based on the byte's value.
-    pub fn from_binary(val: u8) -> Option<Self> {
-        // remove extra 2 bits from the byte, since opcode width = 6bits
-        let six_bits_value: u8 = val >> 2;
-        match six_bits_value {
+    pub fn from_binary(val: u8) -> Option<(Self, OpKind)> {
+        // register to register instructions have 6 bits op
+        let register_to_register_op: u8 = val >> 2;
+
+        let immediate_register_op: u8 = val >> 4;
+        match register_to_register_op {
             // MOV is 100010 (34) with 6bits
-            34 => Some(Self::MOV),
-            _ => None,
+            0b_0010_0010 => Some((Self::MOV, OpKind::RegisterToRegister)),
+            _ => {
+                // check if facing an immediate register OP
+                match immediate_register_op {
+                    0b_0000_1011 => Some((Self::MOV, OpKind::ImmediateRegister)),
+                    _ => None,
+                }
+            }
         }
     }
 
@@ -478,7 +493,6 @@ pub enum Instruction {
 }
 
 impl Instructionable for Instruction {
-
     /// Dispatches assemble() to the associated instruction type
     fn assemble(&self) -> Result<Vec<u8>, String> {
         match self {
@@ -539,7 +553,7 @@ impl RegisterToRegisterInst {
     /// Constructs a RegisterToRegisterInst from two bytes
     pub fn from_bytes(high_byte: u8, low_byte: u8) -> Result<RegisterToRegisterInst, String> {
         let instruction_value = high_byte & OPCODE_MASK;
-        let Some(instruction_mnemonic) = OpCode::from_binary(instruction_value) else {
+        let Some((instruction_mnemonic, _)) = OpCode::from_binary(instruction_value) else {
             return Err(format!(
                 "Invalid instruction of value {} is not a known instruction.",
                 instruction_value
@@ -568,7 +582,6 @@ impl RegisterToRegisterInst {
 }
 
 impl Instructionable for RegisterToRegisterInst {
-
     /// Converts to the 16bit binary representation of the instruction.
     fn assemble(&self) -> Result<Vec<u8>, String> {
         // Opcode takes the first 6 bits of the first byte.
@@ -659,11 +672,24 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
 
     let mut index = 0;
     while index < nb_instructions {
-        match RegisterToRegisterInst::from_bytes(instructions[index], instructions[index + 1]) {
-            Ok(i) => instructions_vec.push(Instruction::RegisterToRegister(i)),
-            Err(e) => return Err(e),
-        }
-        index += 2;
+        match OpCode::from_binary(instructions[index]) {
+            Some((_, op_kind)) => match op_kind {
+                OpKind::RegisterToRegister => {
+                    match RegisterToRegisterInst::from_bytes(
+                        instructions[index],
+                        instructions[index + 1],
+                    ) {
+                        Ok(i) => {
+                                index += i.width;
+                                instructions_vec.push(Instruction::RegisterToRegister(i));
+                            },
+                        Err(e) => return Err(e),
+                    }
+                }
+                _ => return Err("Unknown instruction".to_owned()),
+            }
+            None => return Err("Could not parse instruction".to_owned())
+        };
     }
 
     Ok(instructions_vec)
