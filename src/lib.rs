@@ -49,7 +49,7 @@ const RM_FLAG_BITS_MASK: u8 = 0b0000_0111;
 *  ===============================================
 */
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum OpKind {
     ImmediateRegister,
     RegisterToRegister,
@@ -57,7 +57,7 @@ pub enum OpKind {
 }
 
 /// CPU Instructions
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum OpCode {
     /// MOV DST, SRC (copy)
     MOV,
@@ -114,7 +114,7 @@ impl Display for OpCode {
 */
 
 /// Registers. H -> High byte. L -> Low byte. X -> Full 16 bits
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Register {
     /// AX -> General purpose register A, using all 16 bits.
     Ax,
@@ -216,124 +216,6 @@ impl Register {
             _ => Self::UNKNOWN,
         }
     }
-
-    /// Outputs the wide flag and the register flags from register values.
-    /// Ex: dst src -> 0b0000_00(d, w), 0b(mod, reg, rm)
-    fn to_flags(dst: Self, src: Self) -> Option<InstructionTuple> {
-        if dst == Register::UNKNOWN || src == Register::UNKNOWN {
-            return None;
-        }
-        // edge.edx.org/c4x/BITSPilani/EEE231/asset/8086_family_Users_Manual_1_.pdf
-        // page 160
-
-        // TODO: potential correction(s) here.
-
-        // assuming d bit is always set to 0 ? -> probably not.
-        let d_flag = Flag::new_d(None);
-        let mut w_flag = Flag::new_w(None);
-        // for general purpose registers it seems like mod is always 0b_0000_0011
-        let mod_flag = Flag::new_mod(Some(3));
-        let mut reg_flag = Flag::new_reg(None);
-        let mut rm_flag = Flag::new_rm(None);
-
-        // check src to set reg and dst to check rm
-
-        // When wide == 1, instruction operates on 16bits.
-        match src {
-            Self::UNKNOWN => return None,
-            // W_flag == 1;
-            Self::Ax => {
-                w_flag.set_value(1);
-            }
-            Self::Cx => {
-                w_flag.set_value(1);
-                reg_flag.set_value(1);
-            }
-            Self::Dx => {
-                w_flag.set_value(1);
-                reg_flag.set_value(2);
-            }
-            Self::Bx => {
-                w_flag.set_value(1);
-                reg_flag.set_value(3);
-            }
-            Self::Sp => {
-                w_flag.set_value(1);
-                reg_flag.set_value(4);
-            }
-            Self::Bp => {
-                w_flag.set_value(1);
-                reg_flag.set_value(5);
-            }
-            Self::Si => {
-                w_flag.set_value(1);
-                reg_flag.set_value(6);
-            }
-            Self::Di => {
-                w_flag.set_value(1);
-                reg_flag.set_value(7);
-            }
-            // W_flag == 0;
-            Self::Al => (),
-            Self::Cl => {
-                reg_flag.set_value(1);
-            }
-            Self::Dl => {
-                reg_flag.set_value(2);
-            }
-            Self::Bl => {
-                reg_flag.set_value(3);
-            }
-            Self::Ah => {
-                reg_flag.set_value(4);
-            }
-            Self::Ch => {
-                reg_flag.set_value(5);
-            }
-            Self::Dh => {
-                reg_flag.set_value(6);
-            }
-            Self::Bh => {
-                reg_flag.set_value(7);
-            }
-        }
-
-        // W_flag == 1;
-        match dst {
-            Self::UNKNOWN => return None,
-            Self::Ax | Self::Al => {}
-            Self::Cx | Self::Cl => {
-                rm_flag.set_value(1);
-            }
-            Self::Dx | Self::Dl => {
-                rm_flag.set_value(2);
-            }
-            Self::Bx | Self::Bl => {
-                rm_flag.set_value(3);
-            }
-            Self::Sp | Self::Ah => {
-                rm_flag.set_value(4);
-            }
-            Self::Bp | Self::Ch => {
-                rm_flag.set_value(5);
-            }
-            Self::Si | Self::Dh => {
-                rm_flag.set_value(6);
-            }
-            Self::Di | Self::Bh => {
-                rm_flag.set_value(7);
-            }
-        }
-
-        // d_flag at bit 1 and w_flag at bit 0
-        let mut first_byte = d_flag.get_value() << 1;
-        first_byte |= w_flag.get_value();
-
-        let mut second_byte = mod_flag.get_value() << reg_flag.get_width() | reg_flag.get_value();
-        second_byte = second_byte << rm_flag.get_width() | rm_flag.get_value();
-
-        Some((first_byte, second_byte))
-    }
 }
 
 /* ===============================================
@@ -341,6 +223,7 @@ impl Register {
 *  ===============================================
 */
 /// A variable width bit flag
+#[derive(Debug, Copy, Clone)]
 pub struct BitFlag {
     /// The number of bits for the flag.
     width: u8,
@@ -349,6 +232,7 @@ pub struct BitFlag {
 }
 
 /// CPU Flag
+#[derive(Debug, Copy, Clone)]
 pub enum Flag {
     /// 1 bit. Specifies if the REG flag represents SRC (when 0) or DST (when 1)
     D(BitFlag),
@@ -480,6 +364,7 @@ pub trait Instructionable {
 }
 
 /// Possible 8086 Instructions
+#[derive(Debug, Copy, Clone)]
 pub enum Instruction {
     /// Instruction that operates on two registers
     RegisterToRegister(RegisterToRegisterInst),
@@ -513,6 +398,7 @@ impl Instructionable for Instruction {
 
 /// An intel_8086 Register to Register Instruction
 /// i.e: ```MOV AX,BX```
+#[derive(Debug, Copy, Clone)]
 pub struct RegisterToRegisterInst {
     /// Instruction's common name in asm (mov)
     mnemonic: OpCode,
@@ -695,41 +581,6 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
     Ok(instructions_vec)
 }
 
-/// Transforms asm text into instruction into it's type level representation.
-/// i.e ```mov cx, bx ->  0b10001001 0b11011001```
-pub fn read_asm(asm_inst: &str) -> Result<RegisterToRegisterInst, String> {
-    let inst: Vec<&str> = asm_inst.split(' ').collect();
-    const ASM_INST_COMPONENTS: usize = 3; // opcode, dst, src
-    if inst.len() != ASM_INST_COMPONENTS {
-        return Err(format!(
-            "Instruction should be of length {} but is of length {}",
-            ASM_INST_COMPONENTS,
-            inst.len()
-        ));
-    }
-
-    // first 6 bits of first byte represent the op code.
-    let op_code = OpCode::from_text(inst[0]).expect("Can't interpret asm instruction op code.");
-    let binary_op_code = op_code.to_byte().unwrap();
-
-    let dst = inst[1].replace(',', "");
-    let src = inst[2].replace('\n', "");
-
-    let dst_str = Register::from_str(&dst as &str).unwrap();
-    let src_str = Register::from_str(&src as &str).unwrap();
-    let byte_tuple = Register::to_flags(dst_str, src_str).unwrap();
-
-    // First byte is opcode, d_flag, w_flag
-    // Put the op_code in the first 6 slots from MSB
-    let mut first_byte = binary_op_code;
-    let d_flag = byte_tuple.0 & D_FLAG_BITS_MASK;
-    first_byte |= d_flag << 1; // 1 is pos 2 from LSB (d_flag pos)
-    let w_flag = byte_tuple.0 & W_FLAG_BITS_MASK;
-    first_byte |= w_flag; // 0 is pos 1/LSB (w_flag pos)
-
-    RegisterToRegisterInst::from_bytes(first_byte, byte_tuple.1)
-}
-
 // ***********************************************************************
 // =======================================================================
 // ================================ TESTS ================================
@@ -779,7 +630,8 @@ mod tests {
     #[test]
     fn dissasemble_test() {
         let single_asm_inst = include_str!("../data/asm/single_register_mov.asm");
-        let inst = read_asm(single_asm_inst).unwrap();
+        let bin = include_bytes!("../data/binary/single_register_mov.txt");
+        let inst = read_instructions(bin).unwrap()[0];
         assert_eq!(
             inst.disassemble(),
             single_asm_inst.to_owned().strip_suffix('\n').unwrap()

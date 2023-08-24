@@ -30,10 +30,10 @@ fn main() {
      *  =============== From ASM ======================
      *  ===============================================
      */
-    let single_asm_inst = include_str!("../data/asm/single_register_mov.asm");
-    let inst_from_asm = intel_8086::read_asm(single_asm_inst).unwrap();
-    let asm_from_inst = inst_from_asm.disassemble();
-    let inst_to_raw = inst_from_asm.assemble().unwrap();
+    // let single_asm_inst = include_str!("../data/asm/single_register_mov.asm");
+    let inst2 = &inst[0];
+    let asm_from_inst = inst2.disassemble();
+    let inst_to_raw = inst2.assemble().unwrap();
 
     // Display.
     println!("ASM from reconstructed: {}", asm_from_inst);
