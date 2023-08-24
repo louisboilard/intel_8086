@@ -83,18 +83,10 @@ impl OpCode {
         }
     }
 
-    /// Returns a byte representing the 6bit for the opcode.
-    pub fn to_byte(&self) -> Option<u8> {
+    /// Returns a byte representing the opcode.
+    fn to_byte(self) -> Option<u8> {
         match self {
-            Self::MOV => Some(0b_10_001000),
-            _ => None,
-        }
-    }
-
-    /// Returns a mnemonic variant based on asm op_code
-    pub fn from_text(op_code: &str) -> Option<Self> {
-        match op_code {
-            "mov" | "MOV" => Some(Self::MOV),
+            Self::MOV => Some(0b_1000_1000),
             _ => None,
         }
     }
@@ -358,7 +350,7 @@ pub trait Instructionable {
     fn assemble(&self) -> Result<Vec<u8>, String>;
 
     /// Converts instruction to it's ASM equivalent
-    fn disassemble(&self) -> String;
+    fn disassemble(&self) -> Option<String>;
 }
 
 /// Possible 8086 Instructions
@@ -385,11 +377,11 @@ impl Instructionable for Instruction {
     }
 
     /// Dispatches dissasemble() to the associated instruction type
-    fn disassemble(&self) -> String {
+    fn disassemble(&self) -> Option<String> {
         match self {
             Self::RegisterToRegister(inst) => inst.disassemble(),
             // todo: handle this
-            _ => "Invalid instruction".to_owned(),
+            _ => None,
         }
     }
 }
@@ -499,14 +491,14 @@ impl Instructionable for RegisterToRegisterInst {
 
     /// Converts to a String which represents the ASM instruction.
     /// Ex: ```MOV AX,BX`
-    fn disassemble(&self) -> String {
+    fn disassemble(&self) -> Option<String> {
         let mut asm = self.mnemonic.to_string().to_ascii_lowercase() + " ";
         let dst = Register::from_flags(self.w_flag.get_value(), self.rm_flag.get_value());
         asm += dst.to_string().to_ascii_lowercase().as_str();
         asm += ", ";
         let src = Register::from_flags(self.w_flag.get_value(), self.reg_flag.get_value());
         asm += src.to_string().to_ascii_lowercase().as_str();
-        asm
+        Some(asm)
     }
 }
 
@@ -621,7 +613,7 @@ mod tests {
         // compare all individual instructions with asm equivalent
         for inst in instructions.iter() {
             let dissas = inst.disassemble();
-            assert_eq!(dissas, splitted_asm.next().unwrap());
+            assert_eq!(dissas.unwrap(), splitted_asm.next().unwrap());
         }
     }
 
@@ -631,7 +623,7 @@ mod tests {
         let bin = include_bytes!("../data/binary/single_register_mov.txt");
         let inst = read_instructions(bin).unwrap()[0];
         assert_eq!(
-            inst.disassemble(),
+            inst.disassemble().unwrap(),
             single_asm_inst.to_owned().strip_suffix('\n').unwrap()
         );
     }

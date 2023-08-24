@@ -18,7 +18,7 @@ fn main() {
     let inst_from_inst = inst[0].assemble().unwrap();
 
     // Display.
-    println!("ASM: {}", asm_from_inst);
+    println!("ASM: {}", asm_from_inst.unwrap());
     println!(
         "assembled: {:#b} {:#b}",
         inst_from_inst[0], inst_from_inst[1]
@@ -36,7 +36,7 @@ fn main() {
     let inst_to_raw = inst2.assemble().unwrap();
 
     // Display.
-    println!("ASM from reconstructed: {}", asm_from_inst);
+    println!("ASM from reconstructed: {}", asm_from_inst.unwrap());
     println!("assembled: {:#b} {:#b}", inst_to_raw[0], inst_to_raw[1]);
     println!("assembled:     {:?}", inst_to_raw);
 }
