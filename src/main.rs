@@ -1,3 +1,4 @@
+use intel_8086::Instructionable;
 /// main.rs is purely for examples and quick tests.
 fn main() {
     println!("== Hello from Intel's 8086 ==");
@@ -8,15 +9,13 @@ fn main() {
      */
     let single_register_mov = include_bytes!("../data/binary/single_register_mov.txt");
 
-    // Convert raw inst to type representation
-    let inst =
-        intel_8086::read_instruction(single_register_mov[0], single_register_mov[1]).unwrap();
+    let inst = intel_8086::read_instructions(single_register_mov).unwrap();
 
-    // Dissasemble
-    let asm_from_inst = inst.dissasemble();
+    // disassemble
+    let asm_from_inst = inst[0].disassemble();
 
     // Assemble back to raw instruction
-    let inst_from_inst = inst.assemble().unwrap();
+    let inst_from_inst = inst[0].assemble().unwrap();
 
     // Display.
     println!("ASM: {}", asm_from_inst);
@@ -33,7 +32,7 @@ fn main() {
      */
     let single_asm_inst = include_str!("../data/asm/single_register_mov.asm");
     let inst_from_asm = intel_8086::read_asm(single_asm_inst).unwrap();
-    let asm_from_inst = inst_from_asm.dissasemble();
+    let asm_from_inst = inst_from_asm.disassemble();
     let inst_to_raw = inst_from_asm.assemble().unwrap();
 
     // Display.

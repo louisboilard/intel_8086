@@ -451,13 +451,55 @@ impl Display for Flag {
 }
 
 /* ===============================================
-*  ============== INSTRUCTION ====================
+*  ============== INSTRUCTIONS ====================
 *  ===============================================
 */
 
-/// An intel_8086 Instruction
+/// Functionalities of Instructions
+pub trait Instructionable {
+    /// Converts instruction to it's binary representation (machine code)
+    fn assemble(&self) -> Result<Vec<u8>, String>;
+
+    /// Converts instruction to it's ASM equivalent
+    fn disassemble(&self) -> String;
+}
+
+/// Possible 8086 Instructions
+pub enum Instruction {
+    /// Instruction that operates on two registers
+    RegisterToRegister(RegisterToRegisterInst),
+    // TODO
+    ImmediateToRegister(()),
+    // TODO
+    MemoryToRegister(()),
+
+    /// Unknown instruction
+    UNKNOWN,
+}
+
+impl Instructionable for Instruction {
+
+    /// Dispatches assemble() to the associated instruction type
+    fn assemble(&self) -> Result<Vec<u8>, String> {
+        match self {
+            Self::RegisterToRegister(inst) => inst.assemble(),
+            _ => Err("".to_owned()),
+        }
+    }
+
+    /// Dispatches dissasemble() to the associated instruction type
+    fn disassemble(&self) -> String {
+        match self {
+            Self::RegisterToRegister(inst) => inst.disassemble(),
+            // todo: handle this
+            _ => "Invalid instruction".to_owned(),
+        }
+    }
+}
+
+/// An intel_8086 Register to Register Instruction
 /// i.e: ```MOV AX,BX```
-pub struct Instruction {
+pub struct RegisterToRegisterInst {
     /// Instruction's common name in asm (mov)
     mnemonic: OpCode,
     /// Number of bytes (2) for this instruction.
@@ -474,7 +516,7 @@ pub struct Instruction {
     pub rm_flag: Flag,
 }
 
-impl Instruction {
+impl RegisterToRegisterInst {
     pub fn new(
         mnemonic: OpCode,
         d_flag: Flag,
@@ -494,20 +536,41 @@ impl Instruction {
         }
     }
 
-    /// Converts to a String which represents the ASM instruction.
-    /// Ex: ```MOV AX,BX`
-    pub fn dissasemble(&self) -> String {
-        let mut asm = self.mnemonic.to_string().to_ascii_lowercase() + " ";
-        let dst = Register::from_flags(self.w_flag.get_value(), self.rm_flag.get_value());
-        asm += dst.to_string().to_ascii_lowercase().as_str();
-        asm += ", ";
-        let src = Register::from_flags(self.w_flag.get_value(), self.reg_flag.get_value());
-        asm += src.to_string().to_ascii_lowercase().as_str();
-        asm
+    /// Constructs a RegisterToRegisterInst from two bytes
+    pub fn from_bytes(high_byte: u8, low_byte: u8) -> Result<RegisterToRegisterInst, String> {
+        let instruction_value = high_byte & OPCODE_MASK;
+        let Some(instruction_mnemonic) = OpCode::from_binary(instruction_value) else {
+            return Err(format!(
+                "Invalid instruction of value {} is not a known instruction.",
+                instruction_value
+            ));
+        };
+
+        const BYTE_LENGTH: u8 = 8;
+        // Get value + shift so that the set bits are at LSB in the byte.
+
+        // mod has size 2 and starts at MSB.
+        let mod_val = (low_byte & MOD_FLAG_BITS_MASK) >> (BYTE_LENGTH - 2);
+        // reg has size 3 and starts at pos 3 from MSB (0011_1_000)
+        let reg_val = (low_byte & REG_FLAG_BITS_MASK) >> 3;
+        // rm has size 3 and starts at pos 6 from MSB
+        let rm_val = low_byte & RM_FLAG_BITS_MASK;
+
+        Ok(RegisterToRegisterInst::new(
+            instruction_mnemonic,
+            Flag::new_d(Some(high_byte & D_FLAG_BITS_MASK)),
+            Flag::new_w(Some(high_byte & W_FLAG_BITS_MASK)),
+            Flag::new_mod(Some(mod_val)),
+            Flag::new_reg(Some(reg_val)),
+            Flag::new_rm(Some(rm_val)),
+        ))
     }
+}
+
+impl Instructionable for RegisterToRegisterInst {
 
     /// Converts to the 16bit binary representation of the instruction.
-    pub fn assemble(&self) -> Result<[u8; 2], String> {
+    fn assemble(&self) -> Result<Vec<u8>, String> {
         // Opcode takes the first 6 bits of the first byte.
         let op_code = self.mnemonic.to_byte().unwrap();
 
@@ -534,11 +597,23 @@ impl Instruction {
         // rm flag is 3 bits.
         second_byte = second_byte << self.rm_flag.get_width() | self.rm_flag.get_value();
 
-        Ok([first_byte, second_byte])
+        Ok(vec![first_byte, second_byte])
+    }
+
+    /// Converts to a String which represents the ASM instruction.
+    /// Ex: ```MOV AX,BX`
+    fn disassemble(&self) -> String {
+        let mut asm = self.mnemonic.to_string().to_ascii_lowercase() + " ";
+        let dst = Register::from_flags(self.w_flag.get_value(), self.rm_flag.get_value());
+        asm += dst.to_string().to_ascii_lowercase().as_str();
+        asm += ", ";
+        let src = Register::from_flags(self.w_flag.get_value(), self.reg_flag.get_value());
+        asm += src.to_string().to_ascii_lowercase().as_str();
+        asm
     }
 }
 
-impl Display for Instruction {
+impl Display for RegisterToRegisterInst {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -561,7 +636,7 @@ rm_flag: {}
         )
     }
 }
-impl Default for Instruction {
+impl Default for RegisterToRegisterInst {
     fn default() -> Self {
         Self {
             mnemonic: OpCode::MOV,
@@ -578,24 +653,14 @@ impl Default for Instruction {
 /// Takes in an arbitrary number of 16 bits machine code instructions
 /// Returns a Vec<Instruction>
 pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String> {
-    // The number of bytes passed will always be a multiple of INSTRUCTION_SIZE
-    if instructions.len() % INSTRUCTION_SIZE != 0 {
-        return Err(format!(
-            "Invalid number of bytes: {}, instructions should be a multiple of {}",
-            instructions.len(),
-            INSTRUCTION_SIZE
-        ));
-    }
-    // instruction width == INSTRUCTION_SIZE
+    // smallest potential nb of instruction since smallest inst is INSTRUCTION_SIZE
     let nb_instructions = instructions.len() / INSTRUCTION_SIZE;
-
-    // TODO: check for potential usage of &[]. Box, Rc.
     let mut instructions_vec: Vec<Instruction> = Vec::with_capacity(nb_instructions);
 
     let mut index = 0;
     while index < nb_instructions {
-        match read_instruction(instructions[index], instructions[index + 1]) {
-            Ok(i) => instructions_vec.push(i),
+        match RegisterToRegisterInst::from_bytes(instructions[index], instructions[index + 1]) {
+            Ok(i) => instructions_vec.push(Instruction::RegisterToRegister(i)),
             Err(e) => return Err(e),
         }
         index += 2;
@@ -603,39 +668,10 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
 
     Ok(instructions_vec)
 }
-/// Transforms a 2 bytes raw instruction into it's type representation.
-pub fn read_instruction(high_byte: u8, low_byte: u8) -> Result<Instruction, String> {
-    let instruction_value = high_byte & OPCODE_MASK;
-    let Some(instruction_mnemonic) = OpCode::from_binary(instruction_value) else {
-        return Err(format!(
-            "Invalid instruction of value {} is not a known instruction.",
-            instruction_value
-        ));
-    };
-
-    const BYTE_LENGTH: u8 = 8;
-    // Get value + shift so that the set bits are at LSB in the byte.
-
-    // mod has size 2 and starts at MSB.
-    let mod_val = (low_byte & MOD_FLAG_BITS_MASK) >> (BYTE_LENGTH - 2);
-    // reg has size 3 and starts at pos 3 from MSB (0011_1_000)
-    let reg_val = (low_byte & REG_FLAG_BITS_MASK) >> 3;
-    // rm has size 3 and starts at pos 6 from MSB
-    let rm_val = low_byte & RM_FLAG_BITS_MASK;
-
-    Ok(Instruction::new(
-        instruction_mnemonic,
-        Flag::new_d(Some(high_byte & D_FLAG_BITS_MASK)),
-        Flag::new_w(Some(high_byte & W_FLAG_BITS_MASK)),
-        Flag::new_mod(Some(mod_val)),
-        Flag::new_reg(Some(reg_val)),
-        Flag::new_rm(Some(rm_val)),
-    ))
-}
 
 /// Transforms asm text into instruction into it's type level representation.
 /// i.e ```mov cx, bx ->  0b10001001 0b11011001```
-pub fn read_asm(asm_inst: &str) -> Result<Instruction, String> {
+pub fn read_asm(asm_inst: &str) -> Result<RegisterToRegisterInst, String> {
     let inst: Vec<&str> = asm_inst.split(' ').collect();
     const ASM_INST_COMPONENTS: usize = 3; // opcode, dst, src
     if inst.len() != ASM_INST_COMPONENTS {
@@ -665,7 +701,7 @@ pub fn read_asm(asm_inst: &str) -> Result<Instruction, String> {
     let w_flag = byte_tuple.0 & W_FLAG_BITS_MASK;
     first_byte |= w_flag; // 0 is pos 1/LSB (w_flag pos)
 
-    read_instruction(first_byte, byte_tuple.1)
+    RegisterToRegisterInst::from_bytes(first_byte, byte_tuple.1)
 }
 
 // ***********************************************************************
@@ -680,7 +716,7 @@ mod tests {
     #[test]
     fn assemble_test() {
         let bin = include_bytes!("../data/binary/single_register_mov.txt");
-        let inst = read_instruction(bin[0], bin[1]).unwrap();
+        let inst = RegisterToRegisterInst::from_bytes(bin[0], bin[1]).unwrap();
         let bin_from_inst = inst.assemble().unwrap();
         assert_eq!(bin_from_inst, bin.to_owned());
     }
@@ -709,7 +745,7 @@ mod tests {
 
         // compare all individual instructions with asm equivalent
         for inst in instructions.iter() {
-            let dissas = inst.dissasemble();
+            let dissas = inst.disassemble();
             assert_eq!(dissas, splitted_asm.next().unwrap());
         }
     }
@@ -719,7 +755,7 @@ mod tests {
         let single_asm_inst = include_str!("../data/asm/single_register_mov.asm");
         let inst = read_asm(single_asm_inst).unwrap();
         assert_eq!(
-            inst.dissasemble(),
+            inst.disassemble(),
             single_asm_inst.to_owned().strip_suffix('\n').unwrap()
         );
     }
