@@ -11,7 +11,8 @@ in assembly can be found in data/asm. Technically the simulator can take in the
 decoded/raw binary instructions and turn them into asm and vice (re)versa.
 
 8086 has 16 bits registers. Instructions width is 2 bytes and
-follow the pattern:
+follow the pattern (for register-register insts, different instructions have
+different schemas, i.e immediate mode, mem/register, register/register..):
 
 | 1st byte: | op code  | d flag   | w flag   | 2nd byte: | mod flag | reg flag | rm flag |
 |--         |-------------- | -------------- |--| -------------- | -- | --  |-- |
