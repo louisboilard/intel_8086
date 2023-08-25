@@ -722,7 +722,7 @@ mod tests {
     }
 
     #[test]
-    fn dissasemble_multiple_test() {
+    fn disassemble_multiple_test() {
         let bin = include_bytes!("../data/binary/many_register_mov.txt");
         let asm = include_str!("../data/asm/many_register_mov.asm");
 
@@ -738,7 +738,7 @@ mod tests {
     }
 
     #[test]
-    fn dissasemble_test() {
+    fn disassemble_test() {
         let single_asm_inst = include_str!("../data/asm/single_register_mov.asm");
         let bin = include_bytes!("../data/binary/single_register_mov.txt");
         let inst = read_instructions(bin).unwrap()[0];
@@ -746,5 +746,33 @@ mod tests {
             inst.disassemble().unwrap(),
             single_asm_inst.to_owned().strip_suffix('\n').unwrap()
         );
+    }
+
+    #[test]
+    fn assemble_test_immediate_mode() {
+        let bin = include_bytes!("../data/binary/immediate_to_register.txt");
+        let inst = read_instructions(bin).unwrap();
+        let i1 = inst[0];
+        let i2 = inst[1];
+        let bin_from_inst = i1.assemble().unwrap();
+        let bin2 = i2.assemble().unwrap();
+        assert_eq!(bin_from_inst, bin.to_owned()[0..3]);
+        assert_eq!(bin2, bin.to_owned()[3..6]);
+    }
+
+    #[test]
+    fn disassemble_test_immediate_mode() {
+        let bin = include_bytes!("../data/binary/immediate_to_register.txt");
+        let asm = include_str!("../data/asm/immediate_to_register.asm");
+
+        let instructions = read_instructions(bin).unwrap();
+
+        let mut splitted_asm = asm.lines();
+
+        // compare all individual instructions with asm equivalent
+        for inst in instructions.iter() {
+            let dissas = inst.disassemble();
+            assert_eq!(dissas.unwrap(), splitted_asm.next().unwrap());
+        }
     }
 }
