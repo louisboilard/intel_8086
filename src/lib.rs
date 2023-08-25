@@ -84,10 +84,22 @@ impl OpCode {
     }
 
     /// Returns a byte representing the opcode.
-    fn to_byte(self) -> Option<u8> {
-        match self {
-            Self::MOV => Some(0b_1000_1000),
-            _ => None,
+    // This does not consider different op kinds..
+    fn to_byte(self, kind: OpKind) -> Option<u8> {
+        match kind {
+            OpKind::RegisterToRegister => {
+                match self {
+                    Self::MOV => Some(0b_1000_1000),
+                    _ => None,
+                }
+            },
+            OpKind::ImmediateRegister => {
+                match self {
+                    Self::MOV => Some(0b_1011_0000),
+                    _ => None,
+                }
+            },
+        _ => None,
         }
     }
 }
@@ -359,7 +371,7 @@ pub enum Instruction {
     /// Instruction that operates on two registers
     RegisterToRegister(RegisterToRegisterInst),
     // TODO
-    ImmediateToRegister(()),
+    ImmediateToRegister(ImmediateRegisterInst),
     // TODO
     MemoryToRegister(()),
 
@@ -372,6 +384,7 @@ impl Instructionable for Instruction {
     fn assemble(&self) -> Result<Vec<u8>, String> {
         match self {
             Self::RegisterToRegister(inst) => inst.assemble(),
+            Self::ImmediateToRegister(inst) => inst.assemble(),
             _ => Err("".to_owned()),
         }
     }
@@ -380,9 +393,103 @@ impl Instructionable for Instruction {
     fn disassemble(&self) -> Option<String> {
         match self {
             Self::RegisterToRegister(inst) => inst.disassemble(),
-            // todo: handle this
+            Self::ImmediateToRegister(inst) => inst.disassemble(),
             _ => None,
         }
+    }
+}
+
+/// Immediate to register instruction.
+/// Schema [4bits :opcode, 1bit: w, 3bit: reg][data][data (if w = 1)]
+#[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
+pub struct ImmediateRegisterInst {
+    /// Instruction's common name in asm (mov)
+    mnemonic: OpCode,
+    /// Number of bytes (3) for this instruction.
+    width: usize,
+    /// W bit flag
+    w_flag: Flag,
+    /// Reg bit flag
+    reg_flag: Flag,
+    /// Immediate data byte
+    data_lo: u8,
+    /// Immediate data byte (only in 16bits mode, when w flag is set)
+    data_hi: u8,
+}
+
+impl ImmediateRegisterInst {
+    pub fn new(mnemonic: OpCode, w_flag: Flag, reg_flag: Flag, data_lo: u8, data_hi: u8) -> Self {
+        Self {
+            mnemonic,
+            width: 3,
+            w_flag,
+            reg_flag,
+            data_lo,
+            data_hi,
+        }
+    }
+
+    /// Generates an immediate register instruction based on valid machine code bytes
+    pub fn from_bytes(
+        first_byte: u8,
+        data_byte: u8,
+        data_byte_hi: u8,
+    ) -> Result<ImmediateRegisterInst, String> {
+        let instruction_value = first_byte & 0b1111_0000;
+        let Some((instruction_mnemonic, _)) = OpCode::from_binary(instruction_value) else {
+            return Err(format!(
+                "Invalid instruction of value {} is not a known instruction.",
+                instruction_value
+            ));
+        };
+
+        let w_flag = (first_byte & 0b_0000_1000) >> 3;
+        let reg_flag = first_byte & 0b_0000_0111;
+
+        Ok(ImmediateRegisterInst::new(
+            instruction_mnemonic,
+            Flag::new_w(Some(w_flag)),
+            Flag::new_reg(Some(reg_flag)),
+            data_byte,
+            data_byte_hi,
+        ))
+    }
+}
+
+impl Instructionable for ImmediateRegisterInst {
+
+    fn assemble(&self) -> Result<Vec<u8>, String> {
+        let data_byte = self.data_lo;
+        // seems like nasm always produces data_hi regardless of mode
+        let data_hi = self.data_hi;
+
+        let mut first_byte = OpCode::to_byte(self.mnemonic, OpKind::ImmediateRegister).unwrap();
+
+        let w_flag = self.w_flag.get_value();
+        let reg_flag = self.reg_flag.get_value();
+
+        first_byte |= w_flag << 3;
+        first_byte |= reg_flag;
+
+        Ok(vec![first_byte, data_byte, data_hi])
+
+    }
+
+    fn disassemble(&self) -> Option<String> {
+        let mut asm = self.mnemonic.to_string().to_ascii_lowercase() + " ";
+        let dst = Register::from_flags(self.w_flag.get_value(), self.reg_flag.get_value());
+        asm += dst.to_string().to_ascii_lowercase().as_str();
+        asm += ", ";
+        // 
+        let mut data_ : u16 = self.data_lo as u16;
+        if self.data_hi != 0 {
+            // Big endian.
+            data_ = ((self.data_hi as u16) << 8) | self.data_lo as u16;
+        }
+
+        asm += data_.to_string().as_str();
+        Some(asm)
     }
 }
 
@@ -395,15 +502,15 @@ pub struct RegisterToRegisterInst {
     /// Number of bytes (2) for this instruction.
     width: usize,
     /// D bit flag
-    pub d_flag: Flag,
+    d_flag: Flag,
     /// W bit flag
-    pub w_flag: Flag,
+    w_flag: Flag,
     /// MOD bit flag
-    pub mod_flag: Flag,
+    mod_flag: Flag,
     /// REG bit flag
-    pub reg_flag: Flag,
+    reg_flag: Flag,
     /// RM bit flag
-    pub rm_flag: Flag,
+    rm_flag: Flag,
 }
 
 impl RegisterToRegisterInst {
@@ -461,7 +568,7 @@ impl Instructionable for RegisterToRegisterInst {
     /// Converts to the 16bit binary representation of the instruction.
     fn assemble(&self) -> Result<Vec<u8>, String> {
         // Opcode takes the first 6 bits of the first byte.
-        let op_code = self.mnemonic.to_byte().unwrap();
+        let op_code = self.mnemonic.to_byte(OpKind::RegisterToRegister).unwrap();
 
         // First byte: [6bits: op code][1bit: d_flag][1bit: w_flag]
         let mut first_byte: u8 = op_code;
@@ -547,7 +654,7 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
     let mut instructions_vec: Vec<Instruction> = Vec::with_capacity(nb_instructions);
 
     let mut index = 0;
-    while index < nb_instructions {
+    while index < instructions.len() {
         match OpCode::from_binary(instructions[index]) {
             Some((_, op_kind)) => match op_kind {
                 OpKind::RegisterToRegister => {
