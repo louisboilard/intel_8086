@@ -400,7 +400,7 @@ impl Instructionable for Instruction {
 }
 
 /// Immediate to register instruction.
-/// Schema [4bits :opcode, 1bit: w, 3bit: reg][data][data (if w = 1)]
+/// Schema \[4bits :opcode, 1bit: w, 3bit: reg\]\[data\]\[data (if w = 1)\]
 #[derive(Debug, Copy, Clone)]
 #[allow(dead_code)]
 pub struct ImmediateRegisterInst {
@@ -647,7 +647,7 @@ impl Default for RegisterToRegisterInst {
 }
 
 /// Takes in an arbitrary number of 16 bits machine code instructions
-/// Returns a Vec<Instruction>
+/// `Returns a Vec<Instruction>`
 pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String> {
     // smallest potential nb of instruction since smallest inst is INSTRUCTION_SIZE
     let nb_instructions = instructions.len() / INSTRUCTION_SIZE;
