@@ -50,7 +50,8 @@ const RM_FLAG_BITS_MASK: u8 = 0b0000_0111;
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum OpKind {
     ImmediateRegister,
-    RegisterToRegister,
+    /// Mem/register to register
+    MemoryOrRegToReg,
     UNKNOWN,
 }
 
@@ -59,6 +60,8 @@ pub enum OpKind {
 pub enum OpCode {
     /// MOV DST, SRC (copy)
     MOV,
+    /// ADD DST, SRC (addition)
+    ADD,
     /// Represents an unrecognized instruction.
     UNKNOWN,
 }
@@ -72,11 +75,15 @@ impl OpCode {
         let immediate_register_op: u8 = val >> 4;
         match register_to_register_op {
             // MOV is 100010 (34) with 6bits
-            0b_0010_0010 => Some((Self::MOV, OpKind::RegisterToRegister)),
+            0b_0010_0010 => Some((Self::MOV, OpKind::MemoryOrRegToReg)),
+            // TODO: change for real add
+            0b_0010_0011 => Some((Self::ADD, OpKind::MemoryOrRegToReg)),
             _ => {
                 // check if facing an immediate register OP
                 match immediate_register_op {
                     0b_0000_1011 => Some((Self::MOV, OpKind::ImmediateRegister)),
+                    // TODO: change for real add
+                    0b_1111_1111 => Some((Self::ADD, OpKind::ImmediateRegister)),
                     _ => None,
                 }
             }
@@ -87,15 +94,17 @@ impl OpCode {
     // This does not consider different op kinds..
     fn to_byte(self, kind: OpKind) -> Option<u8> {
         match kind {
-            OpKind::RegisterToRegister => {
+            OpKind::MemoryOrRegToReg => {
                 match self {
                     Self::MOV => Some(0b_1000_1000),
+                    Self::ADD => Some(0b_0000_0000),
                     _ => None,
                 }
             },
             OpKind::ImmediateRegister => {
                 match self {
                     Self::MOV => Some(0b_1011_0000),
+                    Self::ADD => Some(0b_1000_0000),
                     _ => None,
                 }
             },
@@ -481,7 +490,7 @@ impl Instructionable for ImmediateRegisterInst {
         let dst = Register::from_flags(self.w_flag.get_value(), self.reg_flag.get_value());
         asm += dst.to_string().to_ascii_lowercase().as_str();
         asm += ", ";
-        // 
+
         let mut data_ : u16 = self.data_lo as u16;
         if self.data_hi != 0 {
             // Big endian.
@@ -568,7 +577,7 @@ impl Instructionable for RegisterToRegisterInst {
     /// Converts to the 16bit binary representation of the instruction.
     fn assemble(&self) -> Result<Vec<u8>, String> {
         // Opcode takes the first 6 bits of the first byte.
-        let op_code = self.mnemonic.to_byte(OpKind::RegisterToRegister).unwrap();
+        let op_code = self.mnemonic.to_byte(OpKind::MemoryOrRegToReg).unwrap();
 
         // First byte: [6bits: op code][1bit: d_flag][1bit: w_flag]
         let mut first_byte: u8 = op_code;
@@ -657,7 +666,7 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
     while index < instructions.len() {
         match OpCode::from_binary(instructions[index]) {
             Some((_, op_kind)) => match op_kind {
-                OpKind::RegisterToRegister => {
+                OpKind::MemoryOrRegToReg => {
                     match RegisterToRegisterInst::from_bytes(
                         instructions[index],
                         instructions[index + 1],
