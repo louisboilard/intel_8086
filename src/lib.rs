@@ -249,6 +249,8 @@ pub enum Flag {
     D(BitFlag),
     /// 1 bit. Wide. 0 means the instruction is operating on 1byte. 1 means 16 bytes.
     W(BitFlag),
+    /// 1 bit. Sign extension. (for arithmetic ops)
+    S(BitFlag),
     /// 2 bits. Memory or register operation (register-register, register-mem..)
     MOD(BitFlag),
     /// 3 bit. Encodes a register.
@@ -263,6 +265,7 @@ impl Flag {
         match self {
             Flag::D(flag) => flag.width,
             Flag::W(flag) => flag.width,
+            Flag::S(flag) => flag.width,
             Flag::MOD(flag) => flag.width,
             Flag::REG(flag) => flag.width,
             Flag::RM(flag) => flag.width,
@@ -274,6 +277,7 @@ impl Flag {
         match self {
             Flag::D(flag) => flag.value,
             Flag::W(flag) => flag.value,
+            Flag::S(flag) => flag.value,
             Flag::MOD(flag) => flag.value,
             Flag::REG(flag) => flag.value,
             Flag::RM(flag) => flag.value,
@@ -285,6 +289,7 @@ impl Flag {
         match self {
             Flag::D(flag) => flag.value = val,
             Flag::W(flag) => flag.value = val,
+            Flag::S(flag) => flag.value = val,
             Flag::MOD(flag) => flag.value = val,
             Flag::REG(flag) => flag.value = val,
             Flag::RM(flag) => flag.value = val,
@@ -299,6 +304,17 @@ impl Flag {
                 value: val,
             }),
             None => Flag::D(BitFlag { width: 1, value: 0 }),
+        }
+    }
+
+    /// Creates a new D Instruction Flag.
+    pub fn new_s(value: Option<u8>) -> Self {
+        match value {
+            Some(val) => Flag::S(BitFlag {
+                width: 1,
+                value: val,
+            }),
+            None => Flag::S(BitFlag { width: 1, value: 0 }),
         }
     }
 
@@ -417,6 +433,8 @@ pub struct ImmediateRegisterInst {
     mnemonic: OpCode,
     /// Number of bytes (3) for this instruction.
     width: usize,
+    /// S bit flag (sign extension, for arithemtic ops)
+    s_flag: Flag,
     /// W bit flag
     w_flag: Flag,
     /// Reg bit flag
@@ -428,10 +446,11 @@ pub struct ImmediateRegisterInst {
 }
 
 impl ImmediateRegisterInst {
-    pub fn new(mnemonic: OpCode, w_flag: Flag, reg_flag: Flag, data_lo: u8, data_hi: u8) -> Self {
+    pub fn new(mnemonic: OpCode, w_flag: Flag, s_flag: Flag, reg_flag: Flag, data_lo: u8, data_hi: u8) -> Self {
         Self {
             mnemonic,
             width: 3,
+            s_flag,
             w_flag,
             reg_flag,
             data_lo,
@@ -459,6 +478,7 @@ impl ImmediateRegisterInst {
         Ok(ImmediateRegisterInst::new(
             instruction_mnemonic,
             Flag::new_w(Some(w_flag)),
+            Flag::new_s(None),
             Flag::new_reg(Some(reg_flag)),
             data_byte,
             data_byte_hi,
