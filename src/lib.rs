@@ -6,6 +6,10 @@
 //!
 //! second byte: [2bits: mod_flag][3bit: reg_flag][3bit: rm_flag]
 
+// TODO: add new inst type for ADD/MOV->immediate to register/memory,
+// we are currently using immediate to register in mov's and have started a shitty
+// impl to add ADD's, but it's not the proper inst type
+
 use std::fmt;
 use std::fmt::Display;
 use std::str;
@@ -49,7 +53,10 @@ const RM_FLAG_BITS_MASK: u8 = 0b0000_0111;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum OpKind {
+    /// Immediate to register
     ImmediateRegister,
+    /// Immediate to register OR memory
+    ImmediateToRegisterOrMemory,
     /// Mem/register to register
     MemoryOrRegToReg,
     UNKNOWN,
@@ -72,7 +79,11 @@ impl OpCode {
         // register to register instructions have 6 bits op
         let register_to_register_op: u8 = val >> 2;
 
+        // 4 bits
         let immediate_register_op: u8 = val >> 4;
+        // 6 bits
+        let immediate_register_or_memory_op: u8 = val >> 2;
+
         match register_to_register_op {
             // MOV is 100010 (34) with 6bits
             0b_0010_0010 => Some((Self::MOV, OpKind::MemoryOrRegToReg)),
@@ -82,16 +93,17 @@ impl OpCode {
                 // check if facing an immediate register OP
                 match immediate_register_op {
                     0b_0000_1011 => Some((Self::MOV, OpKind::ImmediateRegister)),
-                    // TODO: change for real add
-                    0b_1111_1111 => Some((Self::ADD, OpKind::ImmediateRegister)),
-                    _ => None,
+                    _ => match immediate_register_or_memory_op {
+                        0b_0011_0001 => Some((Self::MOV, OpKind::ImmediateToRegisterOrMemory)),
+                        0b_0010_0000 => Some((Self::ADD, OpKind::ImmediateToRegisterOrMemory)),
+                        _ => None,
+                    },
                 }
             }
         }
     }
 
     /// Returns a byte representing the opcode.
-    // This does not consider different op kinds..
     fn to_byte(self, kind: OpKind) -> Option<u8> {
         match kind {
             OpKind::MemoryOrRegToReg => {
@@ -105,6 +117,13 @@ impl OpCode {
                 match self {
                     Self::MOV => Some(0b_1011_0000),
                     Self::ADD => Some(0b_1000_0000),
+                    _ => None,
+                }
+            },
+            OpKind::ImmediateToRegisterOrMemory => {
+                match self {
+                    Self::MOV => Some(0b_0110_0011),
+                    Self::ADD => Some(0b_0010_0000),
                     _ => None,
                 }
             },
@@ -247,7 +266,7 @@ pub struct BitFlag {
 pub enum Flag {
     /// 1 bit. Specifies if the REG flag represents SRC (when 0) or DST (when 1)
     D(BitFlag),
-    /// 1 bit. Wide. 0 means the instruction is operating on 1byte. 1 means 16 bytes.
+    /// 1 bit. Wide. 0 means the instruction is operating on 1byte. 1 means 2 bytes.
     W(BitFlag),
     /// 1 bit. Sign extension. (for arithmetic ops)
     S(BitFlag),
@@ -520,6 +539,31 @@ impl Instructionable for ImmediateRegisterInst {
         asm += data_.to_string().as_str();
         Some(asm)
     }
+}
+
+/// An intel_8086 Register to Register/memory Instruction
+/// An immediate mode instruction that can be applied
+/// directly to a register, but unlike it's ImmediateToRegisterInst
+/// counterpart can also directly refer to a mem address.
+/// i.e: ```MOV AX,BX```
+#[derive(Debug, Copy, Clone)]
+pub struct ImmediateToRegisterMemInst {
+    /// Instruction's common name in asm (mov)
+    mnemonic: OpCode,
+    /// Number of bytes (up to 6) for this instruction.
+    width: usize,
+    /// S bit flag
+    s_flag: Flag,
+    /// W bit flag
+    w_flag: Flag,
+    /// MOD bit flag
+    mod_flag: Flag,
+    /// RM bit flag
+    rm_flag: Flag,
+}
+
+impl ImmediateToRegisterMemInst {
+    pub fn new(mnemonic: OpCode, width: usize, s_flag: Flag, w_flag: Flag, mod_flag: Flag, rm_flag: Flag) -> Self { Self { mnemonic, width, s_flag, w_flag, mod_flag, rm_flag } }
 }
 
 /// An intel_8086 Register to Register Instruction
