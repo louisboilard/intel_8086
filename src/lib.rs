@@ -16,9 +16,7 @@ mod register;
 mod bitflag;
 
 use instructions::*;
-use opcode::*;
-use register::*;
-use bitflag::*;
+use crate::opcode::{OpCode, OpKind};
 
 /// Takes in an arbitrary number of 16 bits machine code instructions
 /// `Returns a Vec<Instruction>`

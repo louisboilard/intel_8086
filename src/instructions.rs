@@ -1,7 +1,9 @@
 use std::fmt::Display;
 use std::fmt;
 
-use super::*;
+use crate::bitflag::Flag;
+use crate::opcode::{OpCode, OpKind};
+use crate::register::Register;
 
 // Instruction size in bytes
 pub const INSTRUCTION_SIZE: usize = 2;
@@ -48,7 +50,11 @@ pub trait Instructionable {
     fn disassemble(&self) -> Option<String>;
 }
 
-/// Possible 8086 Instructions
+// Used to do concrete type evaluation at runtime instead of dynamic dispatch
+// API consumer is unaware of the underlying Instruction "kind"/real type and
+// can freely use fn's from the Instructionable trait.
+
+/// 8086 Instructions
 #[derive(Debug, Copy, Clone)]
 pub enum Instruction {
     /// Register <-> Register instruction
@@ -86,6 +92,7 @@ impl Instructionable for Instruction {
         }
     }
 }
+
 
 /// Immediate to register instruction.
 /// Schema \[4bits :opcode, 1bit: w, 3bit: reg\]\[data\]\[data (if w = 1)\]
