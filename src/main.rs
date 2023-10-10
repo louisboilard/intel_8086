@@ -1,4 +1,5 @@
-use intel_8086::Instructionable;
+use intel_8086::instructions::*;
+// p
 /// main.rs is purely for examples and quick tests.
 fn main() {
     println!("== Hello from Intel's 8086 ==");
