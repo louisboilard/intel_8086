@@ -1,5 +1,5 @@
-use std::fmt::Display;
 use std::fmt;
+use std::fmt::Display;
 
 /* ===============================================
 *  ===============  OP CODE  =====================
@@ -61,28 +61,22 @@ impl OpCode {
     /// Returns a byte representing the opcode.
     pub fn to_byte(self, kind: OpKind) -> Option<u8> {
         match kind {
-            OpKind::MemoryOrRegToReg => {
-                match self {
-                    Self::Mov => Some(0b_1000_1000),
-                    Self::Add => Some(0b_0000_0000),
-                    _ => None,
-                }
+            OpKind::MemoryOrRegToReg => match self {
+                Self::Mov => Some(0b_1000_1000),
+                Self::Add => Some(0b_0000_0000),
+                _ => None,
             },
-            OpKind::ImmediateRegister => {
-                match self {
-                    Self::Mov => Some(0b_1011_0000),
-                    Self::Add => Some(0b_1000_0000),
-                    _ => None,
-                }
+            OpKind::ImmediateRegister => match self {
+                Self::Mov => Some(0b_1011_0000),
+                Self::Add => Some(0b_1000_0000),
+                _ => None,
             },
-            OpKind::ImmediateToRegisterOrMemory => {
-                match self {
-                    Self::Mov => Some(0b_0110_0011),
-                    Self::Add => Some(0b_0010_0000),
-                    _ => None,
-                }
+            OpKind::ImmediateToRegisterOrMemory => match self {
+                Self::Mov => Some(0b_0110_0011),
+                Self::Add => Some(0b_0010_0000),
+                _ => None,
             },
-        _ => None,
+            _ => None,
         }
     }
 }
@@ -92,4 +86,3 @@ impl Display for OpCode {
         write!(f, "{:?}", self)
     }
 }
-

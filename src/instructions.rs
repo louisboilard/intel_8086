@@ -1,5 +1,5 @@
-use std::fmt::Display;
 use std::fmt;
+use std::fmt::Display;
 
 use crate::bitflag::Flag;
 use crate::opcode::{OpCode, OpKind};
@@ -34,7 +34,6 @@ const REG_FLAG_BITS_MASK: u8 = 0b0011_1000;
 const RM_FLAG_BITS_MASK: u8 = 0b0000_0111;
 
 const BYTE_LENGTH: u8 = 8;
-
 
 /* ===============================================
 *  ============== INSTRUCTIONS ====================
@@ -93,7 +92,6 @@ impl Instructionable for Instruction {
     }
 }
 
-
 /// Immediate to register instruction.
 /// Schema \[4bits :opcode, 1bit: w, 3bit: reg\]\[data\]\[data (if w = 1)\]
 #[derive(Debug, Copy, Clone)]
@@ -116,7 +114,14 @@ pub struct ImmediateRegisterInst {
 }
 
 impl ImmediateRegisterInst {
-    pub fn new(mnemonic: OpCode, w_flag: Flag, s_flag: Flag, reg_flag: Flag, data_lo: u8, data_hi: u8) -> Self {
+    pub fn new(
+        mnemonic: OpCode,
+        w_flag: Flag,
+        s_flag: Flag,
+        reg_flag: Flag,
+        data_lo: u8,
+        data_hi: u8,
+    ) -> Self {
         Self {
             mnemonic,
             width: 3,
@@ -161,7 +166,6 @@ impl ImmediateRegisterInst {
 }
 
 impl Instructionable for ImmediateRegisterInst {
-
     fn assemble(&self) -> Result<Vec<u8>, String> {
         let data_byte = self.data_lo;
         // seems like nasm always produces data_hi regardless of mode
@@ -176,7 +180,6 @@ impl Instructionable for ImmediateRegisterInst {
         first_byte |= reg_flag;
 
         Ok(vec![first_byte, data_byte, data_hi])
-
     }
 
     fn disassemble(&self) -> Option<String> {
@@ -185,7 +188,7 @@ impl Instructionable for ImmediateRegisterInst {
         asm += dst.to_string().to_ascii_lowercase().as_str();
         asm += ", ";
 
-        let mut data_ : u16 = self.data_lo as u16;
+        let mut data_: u16 = self.data_lo as u16;
         if self.data_hi != 0 {
             // Big endian.
             data_ = ((self.data_hi as u16) << 8) | self.data_lo as u16;
@@ -219,7 +222,23 @@ pub struct ImmediateToRegisterMemInst {
 }
 
 impl ImmediateToRegisterMemInst {
-    pub fn new(mnemonic: OpCode, width: usize, s_flag: Flag, w_flag: Flag, mod_flag: Flag, rm_flag: Flag) -> Self { Self { mnemonic, width, s_flag, w_flag, mod_flag, rm_flag } }
+    pub fn new(
+        mnemonic: OpCode,
+        width: usize,
+        s_flag: Flag,
+        w_flag: Flag,
+        mod_flag: Flag,
+        rm_flag: Flag,
+    ) -> Self {
+        Self {
+            mnemonic,
+            width,
+            s_flag,
+            w_flag,
+            mod_flag,
+            rm_flag,
+        }
+    }
 
     pub fn from_bytes(high_byte: u8, low_byte: u8) -> Result<ImmediateToRegisterMemInst, String> {
         let instruction_value = high_byte & 0b_1111_1100;
@@ -408,4 +427,3 @@ impl Default for RegisterToRegisterInst {
         }
     }
 }
-

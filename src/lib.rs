@@ -10,13 +10,13 @@
 // we are currently using immediate to register in mov's and have started a shitty
 // impl to add ADD's, but it's not the proper inst type
 
+mod bitflag;
 pub mod instructions;
 mod opcode;
 mod register;
-mod bitflag;
 
-use instructions::*;
 use crate::opcode::{OpCode, OpKind};
+use instructions::*;
 
 /// Takes in an arbitrary number of 16 bits machine code instructions
 /// `Returns a Vec<Instruction>`
