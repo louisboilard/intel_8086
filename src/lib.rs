@@ -29,6 +29,8 @@ const INSTRUCTION_SIZE: usize = 2;
 const OPCODE_MASK: u8 = 0b1111_1100;
 // D Flag Mask. 7th bit.
 const D_FLAG_BITS_MASK: u8 = 0b0000_0010;
+// S Flag Mask. 7th bit.
+const S_FLAG_BITS_MASK: u8 = 0b0000_0010;
 // D Flag Mask. LSB of the first byte.
 const W_FLAG_BITS_MASK: u8 = 0b0000_0001;
 
@@ -41,6 +43,7 @@ const REG_FLAG_BITS_MASK: u8 = 0b0011_1000;
 // RM Flag Mask. bits 6-7-8
 const RM_FLAG_BITS_MASK: u8 = 0b0000_0111;
 
+const BYTE_LENGTH: u8 = 8;
 /* ===============================================
 *  ===============================================
 *  ===============================================
@@ -412,32 +415,37 @@ pub trait Instructionable {
 /// Possible 8086 Instructions
 #[derive(Debug, Copy, Clone)]
 pub enum Instruction {
-    /// Instruction that operates on two registers
+    /// Register <-> Register instruction
     RegisterToRegister(RegisterToRegisterInst),
-    // TODO
+    /// Directly operates on register
     ImmediateToRegister(ImmediateRegisterInst),
-    // TODO
-    MemoryToRegister(()),
-
+    /// Directly operates on register OR memory
+    ImmediateToRegisterOrMemory(ImmediateToRegisterMemInst),
     /// Unknown instruction
     UNKNOWN,
 }
 
 impl Instructionable for Instruction {
-    /// Dispatches assemble() to the associated instruction type
+    /// Assembles's the given instruction, resulting in it's machine code
+    /// binary equivalence.
     fn assemble(&self) -> Result<Vec<u8>, String> {
+        // Dispatches assemble() to the associated instruction type
         match self {
             Self::RegisterToRegister(inst) => inst.assemble(),
             Self::ImmediateToRegister(inst) => inst.assemble(),
+            // Self::ImmediateToRegisterOrMemory(inst) => inst.assemble(),
             _ => Err("".to_owned()),
         }
     }
 
-    /// Dispatches dissasemble() to the associated instruction type
+    /// Dissasemble's the given instruction, resulting in it's ASM equivalence
+    /// in String form.
     fn disassemble(&self) -> Option<String> {
+        // dispatches dissasemble() to the associated instruction type
         match self {
             Self::RegisterToRegister(inst) => inst.disassemble(),
             Self::ImmediateToRegister(inst) => inst.disassemble(),
+            // Self::ImmediateToRegisterOrMemory(inst) => inst.dissasemble(),
             _ => None,
         }
     }
@@ -547,6 +555,7 @@ impl Instructionable for ImmediateRegisterInst {
 /// counterpart can also directly refer to a mem address.
 /// i.e: ```MOV AX,BX```
 #[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
 pub struct ImmediateToRegisterMemInst {
     /// Instruction's common name in asm (mov)
     mnemonic: OpCode,
@@ -564,6 +573,33 @@ pub struct ImmediateToRegisterMemInst {
 
 impl ImmediateToRegisterMemInst {
     pub fn new(mnemonic: OpCode, width: usize, s_flag: Flag, w_flag: Flag, mod_flag: Flag, rm_flag: Flag) -> Self { Self { mnemonic, width, s_flag, w_flag, mod_flag, rm_flag } }
+
+    pub fn from_bytes(high_byte: u8, low_byte: u8) -> Result<ImmediateToRegisterMemInst, String> {
+        let instruction_value = high_byte & 0b_1111_1100;
+        let Some((instruction_mnemonic, _)) = OpCode::from_binary(instruction_value) else {
+            return Err(format!(
+                "Invalid instruction of value {} is not a known instruction.",
+                instruction_value
+            ));
+        };
+
+        // Get value + shift so that the set bits are at LSB in the byte.
+
+        // mod has size 2 and starts at MSB.
+        let mod_val = (low_byte & MOD_FLAG_BITS_MASK) >> (BYTE_LENGTH - 2);
+        // for this inst kind, r/m is 2 last bits of the second byte.
+        let rm_val = low_byte & 0b_0000_0011;
+
+        // TODO: find real size (not 2) + find s flag
+        Ok(ImmediateToRegisterMemInst::new(
+            instruction_mnemonic,
+            2,
+            Flag::new_s(Some(high_byte & S_FLAG_BITS_MASK)),
+            Flag::new_w(Some(high_byte & W_FLAG_BITS_MASK)),
+            Flag::new_mod(Some(mod_val)),
+            Flag::new_rm(Some(rm_val)),
+        ))
+    }
 }
 
 /// An intel_8086 Register to Register Instruction
@@ -616,7 +652,6 @@ impl RegisterToRegisterInst {
             ));
         };
 
-        const BYTE_LENGTH: u8 = 8;
         // Get value + shift so that the set bits are at LSB in the byte.
 
         // mod has size 2 and starts at MSB.
