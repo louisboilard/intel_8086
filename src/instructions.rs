@@ -292,19 +292,45 @@ impl ImmediateToRegisterMemInst {
             data = third_byte;
         }
 
+        let s_flag = high_byte & S_FLAG_BITS_MASK;
+        let mut extra_byte_for_data_hi = 0;
+        if s_flag == 0 && w_flag == 1 {
+            extra_byte_for_data_hi = 1;
+        }
+
         const MIN_INST_SIZE: u8 = 3; // size at least 2 bytes flags + 1 byte data
                                      // width is between 3-6 bytes, depending on MOD (to see if
-                                     // DISP-LO/DISP-HI are present) and on if w == 1 (16 bits of data)
-        let width = (disps + w_flag + MIN_INST_SIZE) as usize;
+                                     // DISP-LO/DISP-HI are present) and on if
+                                     // (w == 1 && s == 0) (16 bits of data)
+        let width = (disps + extra_byte_for_data_hi + MIN_INST_SIZE) as usize;
 
         Ok(ImmediateToRegisterMemInst::new(
             instruction_mnemonic,
             width,
-            Flag::new_s(Some(high_byte & S_FLAG_BITS_MASK)),
+            Flag::new_s(Some(s_flag)),
             Flag::new_w(Some(w_flag)),
             Flag::new_mod(Some(mod_val)),
             Flag::new_rm(Some(rm_val)),
+            disp_lo,
+            disp_hi,
+            data,
         ))
+    }
+
+    /// Sets the data and data_hi bytes if required
+    pub fn set_data(&mut self, bytes: &[u8]) {
+        assert!(bytes.len() <= 3);
+        // if w == 1 and s == 0, data_hi is set (last byte)
+        if self.w_flag.get_value() == 1 && self.s_flag.get_value() == 0 {
+            self.data_hi = Some(bytes[bytes.len() - 1]);
+        }
+        // if disp-lo and disp-hi are present, 2nd byte is data.
+        if self.disp_lo && self.disp_hi {
+            self.data = bytes[1];
+        } else if self.disp_lo {
+            // disp-hi not present, data is first byte
+            self.data = bytes[0];
+        }
     }
 
     pub fn get_width(&self) -> usize {
