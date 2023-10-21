@@ -42,19 +42,14 @@ impl OpCode {
         match register_to_register_op {
             // MOV is 100010 (34) with 6bits
             0b_0010_0010 => Some((Self::Mov, OpKind::MemoryOrRegToReg)),
-            // TODO: change for real add
-            0b_0010_0011 => Some((Self::Add, OpKind::MemoryOrRegToReg)),
+            0b_0000_0000 => Some((Self::Add, OpKind::MemoryOrRegToReg)),
             _ => {
                 // check if facing an immediate register OP
                 match immediate_register_op {
                     0b_0000_1011 => Some((Self::Mov, OpKind::ImmediateRegister)),
                     _ => match immediate_register_or_memory_op {
-                        // Add op with s flag == 0
                         0b_0011_0001 => Some((Self::Mov, OpKind::ImmediateToRegisterOrMemory)),
-                        // Add op with s flag == 0
                         0b_0010_0000 => Some((Self::Add, OpKind::ImmediateToRegisterOrMemory)),
-                        // Add op with s flag == 1
-                        0b_0010_0001 => Some((Self::Add, OpKind::ImmediateToRegisterOrMemory)),
                         _ => None,
                     },
                 }
@@ -72,12 +67,11 @@ impl OpCode {
             },
             OpKind::ImmediateRegister => match self {
                 Self::Mov => Some(0b_1011_0000),
-                Self::Add => Some(0b_1000_0000),
                 _ => None,
             },
             OpKind::ImmediateToRegisterOrMemory => match self {
                 Self::Mov => Some(0b_0110_0011),
-                Self::Add => Some(0b_0010_0000),
+                Self::Add => Some(0b_1000_0000),
                 _ => None,
             },
             _ => None,

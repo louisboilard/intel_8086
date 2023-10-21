@@ -74,7 +74,8 @@ impl Instructionable for Instruction {
         match self {
             Self::RegisterToRegister(inst) => inst.assemble(),
             Self::ImmediateToRegister(inst) => inst.assemble(),
-            _ => Err("".to_owned()),
+            Self::ImmediateToRegisterOrMemory(inst) => inst.assemble(),
+            _ => Err("No matching instruction to assemble".to_owned()),
         }
     }
 
@@ -273,9 +274,8 @@ impl ImmediateToRegisterMemInst {
         // mod has size 2 and starts at MSB.
         let mod_val = (low_byte & MOD_FLAG_BITS_MASK) >> (BYTE_LENGTH - 2);
         assert!(mod_val <= 3);
-        // for this inst kind, r/m is 2 last bits of the second byte.
-        let rm_val = low_byte & 0b_0000_0011;
 
+        let rm_val = low_byte & RM_FLAG_BITS_MASK;
         let w_flag = high_byte & W_FLAG_BITS_MASK;
 
         // DISP-LO/HI (LO when mod = 1, LO+HI when 2. None when mod == 1 || 3)
@@ -292,7 +292,7 @@ impl ImmediateToRegisterMemInst {
             data = third_byte;
         }
 
-        let s_flag = high_byte & S_FLAG_BITS_MASK;
+        let s_flag = (high_byte & S_FLAG_BITS_MASK) >> 1;
         let mut extra_byte_for_data_hi = 0;
         if s_flag == 0 && w_flag == 1 {
             extra_byte_for_data_hi = 1;
@@ -335,6 +335,46 @@ impl ImmediateToRegisterMemInst {
 
     pub fn get_width(&self) -> usize {
         self.width
+    }
+}
+
+impl Instructionable for ImmediateToRegisterMemInst {
+    fn assemble(&self) -> Result<Vec<u8>, String> {
+        let mut result: Vec<u8> = Vec::with_capacity(self.width);
+        let mut first_byte =
+            OpCode::to_byte(self.mnemonic, OpKind::ImmediateToRegisterOrMemory).unwrap();
+
+        first_byte |= self.s_flag.get_value() << 1;
+        // w_flag index is 0.
+        first_byte |= self.w_flag.get_value();
+        result.push(first_byte);
+
+        // Second byte is: <2bits mod><3bits 0s>< 3bits rm>
+        const NB_ZERO_BITS: u8 = 3;
+        let mut second_byte = self.mod_flag.get_value();
+        second_byte <<= NB_ZERO_BITS;
+        second_byte = second_byte << self.rm_flag.get_width() | self.rm_flag.get_value();
+        result.push(second_byte);
+
+        // We don't actually care about displacement values
+        if self.disp_lo {
+            result.push(0b_0000_0000);
+        }
+        if self.disp_hi {
+            result.push(0b_0000_0000);
+        }
+
+        result.push(self.data);
+
+        if let Some(data_hi) = self.data_hi {
+            result.push(data_hi);
+        }
+
+        Ok(result)
+    }
+
+    fn disassemble(&self) -> Option<String> {
+        todo!()
     }
 }
 
