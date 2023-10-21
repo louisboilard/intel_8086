@@ -74,7 +74,6 @@ impl Instructionable for Instruction {
         match self {
             Self::RegisterToRegister(inst) => inst.assemble(),
             Self::ImmediateToRegister(inst) => inst.assemble(),
-            // Self::ImmediateToRegisterOrMemory(inst) => inst.assemble(),
             _ => Err("".to_owned()),
         }
     }
@@ -86,7 +85,6 @@ impl Instructionable for Instruction {
         match self {
             Self::RegisterToRegister(inst) => inst.disassemble(),
             Self::ImmediateToRegister(inst) => inst.disassemble(),
-            // Self::ImmediateToRegisterOrMemory(inst) => inst.dissasemble(),
             _ => None,
         }
     }
