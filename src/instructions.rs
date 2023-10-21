@@ -86,6 +86,7 @@ impl Instructionable for Instruction {
         match self {
             Self::RegisterToRegister(inst) => inst.disassemble(),
             Self::ImmediateToRegister(inst) => inst.disassemble(),
+            Self::ImmediateToRegisterOrMemory(inst) => inst.disassemble(),
             _ => None,
         }
     }
@@ -373,8 +374,15 @@ impl Instructionable for ImmediateToRegisterMemInst {
         Ok(result)
     }
 
+    /// Converts the instruction to a String of form "mnemonic register, value"
+    /// Ex: "ADD bx, 123"
     fn disassemble(&self) -> Option<String> {
-        todo!()
+        let mut asm = self.mnemonic.to_string().to_ascii_lowercase() + " ";
+        let dst = Register::from_flags(self.w_flag.get_value(), self.rm_flag.get_value());
+        asm += dst.to_string().to_ascii_lowercase().as_str();
+        asm += ", ";
+        asm += self.data.to_string().as_str();
+        Some(asm)
     }
 }
 
