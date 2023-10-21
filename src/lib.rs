@@ -54,6 +54,18 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
                         Err(e) => return Err(e),
                     }
                 }
+                OpKind::ImmediateToRegisterOrMemory => {
+                    match ImmediateToRegisterMemInst::from_bytes(
+                        instructions[index],
+                        instructions[index + 1],
+                    ) {
+                        Ok(i) => {
+                            index += i.get_width();
+                            instructions_vec.push(Instruction::ImmediateToRegisterOrMemory(i));
+                        }
+                        Err(e) => return Err(e),
+                    }
+                }
                 _ => return Err("Unknown instruction".to_owned()),
             },
             None => return Err("Could not parse instruction".to_owned()),

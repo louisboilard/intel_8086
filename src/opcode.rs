@@ -49,8 +49,12 @@ impl OpCode {
                 match immediate_register_op {
                     0b_0000_1011 => Some((Self::Mov, OpKind::ImmediateRegister)),
                     _ => match immediate_register_or_memory_op {
+                        // Add op with s flag == 0
                         0b_0011_0001 => Some((Self::Mov, OpKind::ImmediateToRegisterOrMemory)),
+                        // Add op with s flag == 0
                         0b_0010_0000 => Some((Self::Add, OpKind::ImmediateToRegisterOrMemory)),
+                        // Add op with s flag == 1
+                        0b_0010_0001 => Some((Self::Add, OpKind::ImmediateToRegisterOrMemory)),
                         _ => None,
                     },
                 }

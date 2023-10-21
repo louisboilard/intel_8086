@@ -199,11 +199,11 @@ impl Instructionable for ImmediateRegisterInst {
     }
 }
 
-/// An intel_8086 Register to Register/memory Instruction
+/// An intel_8086 Immediate to Register/memory Instruction
 /// An immediate mode instruction that can be applied
 /// directly to a register, but unlike it's ImmediateToRegisterInst
 /// counterpart can also directly refer to a mem address.
-/// i.e: ```MOV AX,BX```
+/// NOTE: Instructionable currently unimplemented for this inst type.
 #[derive(Debug, Copy, Clone)]
 #[allow(dead_code)]
 pub struct ImmediateToRegisterMemInst {
@@ -241,7 +241,7 @@ impl ImmediateToRegisterMemInst {
     }
 
     pub fn from_bytes(high_byte: u8, low_byte: u8) -> Result<ImmediateToRegisterMemInst, String> {
-        let instruction_value = high_byte & 0b_1111_1100;
+        let instruction_value = high_byte & OPCODE_MASK;
         let Some((instruction_mnemonic, _)) = OpCode::from_binary(instruction_value) else {
             return Err(format!(
                 "Invalid instruction of value {} is not a known instruction.",
@@ -253,15 +253,28 @@ impl ImmediateToRegisterMemInst {
 
         // mod has size 2 and starts at MSB.
         let mod_val = (low_byte & MOD_FLAG_BITS_MASK) >> (BYTE_LENGTH - 2);
+        assert!(mod_val <= 3);
         // for this inst kind, r/m is 2 last bits of the second byte.
         let rm_val = low_byte & 0b_0000_0011;
 
-        // TODO: find real size (not 2) + find s flag
+        let w_flag = high_byte & W_FLAG_BITS_MASK;
+
+        // DISP-LO/HI (LO when mod = 1, LO+HI when 2. None when mod == 1 || 3)
+        let mut disps = 0;
+        if mod_val < 3 {
+            disps = mod_val;
+        }
+
+        const MIN_INST_SIZE: u8 = 3; // size at least 2 bytes flags + 1 byte data
+                                     // width is between 3-6 bytes, depending on MOD (to see if
+                                     // DISP-LO/DISP-HI are present) and on if w == 1 (16 bits of data)
+        let width = (disps + w_flag + MIN_INST_SIZE) as usize;
+
         Ok(ImmediateToRegisterMemInst::new(
             instruction_mnemonic,
-            2,
+            width,
             Flag::new_s(Some(high_byte & S_FLAG_BITS_MASK)),
-            Flag::new_w(Some(high_byte & W_FLAG_BITS_MASK)),
+            Flag::new_w(Some(w_flag)),
             Flag::new_mod(Some(mod_val)),
             Flag::new_rm(Some(rm_val)),
         ))
