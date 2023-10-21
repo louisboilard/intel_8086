@@ -217,9 +217,18 @@ pub struct ImmediateToRegisterMemInst {
     mod_flag: Flag,
     /// RM bit flag
     rm_flag: Flag,
+    /// Displacement LO (when MOD == 10)
+    disp_lo: bool,
+    /// Displacement HI (when MOD == 01)
+    disp_hi: bool,
+    /// Data
+    data: u8,
+    /// (in 16 bits mode only, when w=1)
+    data_hi: Option<u8>,
 }
 
 impl ImmediateToRegisterMemInst {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         mnemonic: OpCode,
         width: usize,
@@ -227,6 +236,9 @@ impl ImmediateToRegisterMemInst {
         w_flag: Flag,
         mod_flag: Flag,
         rm_flag: Flag,
+        disp_lo: bool,
+        disp_hi: bool,
+        data: u8,
     ) -> Self {
         Self {
             mnemonic,
@@ -235,10 +247,19 @@ impl ImmediateToRegisterMemInst {
             w_flag,
             mod_flag,
             rm_flag,
+            disp_lo,
+            disp_hi,
+            data,
+            data_hi: None,
         }
     }
 
-    pub fn from_bytes(high_byte: u8, low_byte: u8) -> Result<ImmediateToRegisterMemInst, String> {
+    // High-low byte are flags bytes, third byte is either data or disp-lo
+    pub fn from_bytes(
+        high_byte: u8,
+        low_byte: u8,
+        third_byte: u8,
+    ) -> Result<ImmediateToRegisterMemInst, String> {
         let instruction_value = high_byte & OPCODE_MASK;
         let Some((instruction_mnemonic, _)) = OpCode::from_binary(instruction_value) else {
             return Err(format!(
@@ -258,9 +279,17 @@ impl ImmediateToRegisterMemInst {
         let w_flag = high_byte & W_FLAG_BITS_MASK;
 
         // DISP-LO/HI (LO when mod = 1, LO+HI when 2. None when mod == 1 || 3)
-        let mut disps = 0;
-        if mod_val < 3 {
-            disps = mod_val;
+        let (disps, disp_lo, disp_hi) = match mod_val {
+            1 => (1, true, false),
+            2 => (2, true, true),
+            _ => (0, false, false),
+        };
+
+        // No disp-lo implies no disp-hi which implies 3rd byte represents the data
+        // 3rd byte is always either disp-lo OR data.
+        let mut data = 0;
+        if !disp_lo {
+            data = third_byte;
         }
 
         const MIN_INST_SIZE: u8 = 3; // size at least 2 bytes flags + 1 byte data
