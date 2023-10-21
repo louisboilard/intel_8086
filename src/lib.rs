@@ -58,9 +58,29 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
                     match ImmediateToRegisterMemInst::from_bytes(
                         instructions[index],
                         instructions[index + 1],
+                        instructions[index + 2],
                     ) {
-                        Ok(i) => {
-                            index += i.get_width();
+                        Ok(mut i) => {
+                            // Order: disp-lo, disp-hi, data, data-hi
+                            // extra bytes are the optional disp-lo, disp-hi and data-hi
+                            let inst_width = i.get_width();
+                            const MIN_INST_WIDTH: usize = 3;
+                            assert!(inst_width >= MIN_INST_WIDTH);
+
+                            const MAX_NB_EXTRA_BYTES: usize = 3;
+                            let extra_bytes = inst_width - MAX_NB_EXTRA_BYTES;
+
+                            // 0 would means the inst is the minimum size of
+                            // 3 bytes (high, low, data)
+                            if extra_bytes > 0 {
+                                let current_index = index + 3;
+                                let index_after_inst = current_index + extra_bytes;
+                                let inst_extra_bytes: &[u8] =
+                                    &instructions[current_index..index_after_inst];
+                                i.set_data(inst_extra_bytes);
+                            }
+
+                            index += inst_width;
                             instructions_vec.push(Instruction::ImmediateToRegisterOrMemory(i));
                         }
                         Err(e) => return Err(e),
