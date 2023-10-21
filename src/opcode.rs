@@ -22,7 +22,7 @@ pub enum OpKind {
 pub enum OpCode {
     /// MOV DST, SRC (copy)
     Mov,
-    /// ADD DST, SRC (addition)
+    /// Add DST, SRC (addition)
     Add,
     /// Represents an unrecognized instruction.
     Unknown,
@@ -70,7 +70,7 @@ impl OpCode {
                 _ => None,
             },
             OpKind::ImmediateToRegisterOrMemory => match self {
-                Self::Mov => Some(0b_0110_0011),
+                Self::Mov => Some(0b_1100_0011),
                 Self::Add => Some(0b_1000_0000),
                 _ => None,
             },

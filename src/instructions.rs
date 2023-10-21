@@ -203,7 +203,6 @@ impl Instructionable for ImmediateRegisterInst {
 /// An immediate mode instruction that can be applied
 /// directly to a register, but unlike it's ImmediateToRegisterInst
 /// counterpart can also directly refer to a mem address.
-/// NOTE: Instructionable currently unimplemented for this inst type.
 #[derive(Debug, Copy, Clone)]
 #[allow(dead_code)]
 pub struct ImmediateToRegisterMemInst {

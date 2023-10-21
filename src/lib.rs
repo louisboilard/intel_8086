@@ -6,10 +6,6 @@
 //!
 //! second byte: [2bits: mod_flag][3bit: reg_flag][3bit: rm_flag]
 
-// TODO: add new inst type for ADD/MOV->immediate to register/memory,
-// we are currently using immediate to register in mov's and have started a shitty
-// impl to add ADD's, but it's not the proper inst type
-
 mod bitflag;
 pub mod instructions;
 mod opcode;
@@ -178,5 +174,27 @@ mod tests {
             let dissas = inst.disassemble();
             assert_eq!(dissas.unwrap(), splitted_asm.next().unwrap());
         }
+    }
+    #[test]
+    fn test_add() {
+        let bin = include_bytes!("../data/binary/add.txt");
+        let asm = include_str!("../data/asm/add.asm");
+        let mut splitted_asm = asm.lines();
+
+        let instructions = read_instructions(bin).unwrap();
+        let inst1 = instructions[0];
+        let ass = inst1.assemble().unwrap();
+        assert_eq!(ass.to_owned(), bin.to_owned()[0..2]);
+
+        let dissas = inst1.disassemble().unwrap();
+        assert_eq!(dissas, splitted_asm.next().unwrap());
+
+        // Second instruction
+        let inst2 = instructions[1];
+        let ass2 = inst2.assemble().unwrap();
+        assert_eq!(ass2.to_owned(), bin.to_owned()[2..5]);
+
+        let dissas2 = inst2.disassemble().unwrap();
+        assert_eq!(dissas2, splitted_asm.next().unwrap());
     }
 }
