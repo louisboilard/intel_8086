@@ -199,9 +199,9 @@ mod tests {
     }
 
     #[test]
-    fn test_sub() {
-        let bin = include_bytes!("../data/binary/sub.txt");
-        let asm = include_str!("../data/asm/sub.asm");
+    fn test_add_cmp_sub() {
+        let bin = include_bytes!("../data/binary/multiple.txt");
+        let asm = include_str!("../data/asm/multiple.asm");
         let mut splitted_asm = asm.lines();
 
         let instructions = read_instructions(bin).unwrap();
