@@ -23,7 +23,7 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
 
     let mut index = 0;
     while index < instructions.len() {
-        match OpCode::from_binary(instructions[index]) {
+        match OpCode::from_binary(instructions[index], None) {
             Some((_, op_kind)) => match op_kind {
                 OpKind::MemoryOrRegToReg => {
                     match RegisterToRegisterInst::from_bytes(
@@ -196,5 +196,18 @@ mod tests {
 
         let dissas2 = inst2.disassemble().unwrap();
         assert_eq!(dissas2, splitted_asm.next().unwrap());
+    }
+
+    #[test]
+    fn test_sub() {
+        let bin = include_bytes!("../data/binary/sub.txt");
+        let asm = include_str!("../data/asm/sub.asm");
+        let mut splitted_asm = asm.lines();
+
+        let instructions = read_instructions(bin).unwrap();
+        for inst in instructions.iter() {
+            let dissas = inst.disassemble();
+            assert_eq!(dissas.unwrap(), splitted_asm.next().unwrap());
+        }
     }
 }
