@@ -144,9 +144,9 @@ impl ImmediateRegisterInst {
         data_byte_hi: u8,
     ) -> Result<ImmediateRegisterInst, String> {
         let instruction_value = first_byte & 0b1111_0000;
-        let Some((instruction_mnemonic, _)) = OpCode::from_binary(instruction_value) else {
+        let Some((instruction_mnemonic, _)) = OpCode::from_binary(instruction_value, None) else {
             return Err(format!(
-                "Invalid instruction of value {} is not a known instruction.",
+                "Invalid instruction of value {:#b} is not a known instruction.",
                 instruction_value
             ));
         };
@@ -262,10 +262,13 @@ impl ImmediateToRegisterMemInst {
         third_byte: u8,
     ) -> Result<ImmediateToRegisterMemInst, String> {
         let instruction_value = high_byte & OPCODE_MASK;
-        let Some((instruction_mnemonic, _)) = OpCode::from_binary(instruction_value) else {
+        let Some((instruction_mnemonic, _)) =
+            OpCode::from_binary(instruction_value, Some(low_byte))
+        else {
             return Err(format!(
-                "Invalid instruction of value {} is not a known instruction.",
-                instruction_value
+                "Invalid instruction of value {:#b} is not a known instruction.
+                 second byte: {:#b}",
+                instruction_value, low_byte
             ));
         };
 
@@ -349,10 +352,15 @@ impl Instructionable for ImmediateToRegisterMemInst {
         first_byte |= self.w_flag.get_value();
         result.push(first_byte);
 
-        // Second byte is: <2bits mod><3bits 0s>< 3bits rm>
-        const NB_ZERO_BITS: u8 = 3;
+        // Second byte is: <2bits mod><3bits middle_bits>< 3bits rm>
+        let mut middle_bits = 0;
+        if self.mnemonic == OpCode::Sub {
+            middle_bits = 0b_0000_0101;
+        }
+
+        const NB_MIDDLE_BITS: u8 = 3;
         let mut second_byte = self.mod_flag.get_value();
-        second_byte <<= NB_ZERO_BITS;
+        second_byte = second_byte << NB_MIDDLE_BITS | middle_bits;
         second_byte = second_byte << self.rm_flag.get_width() | self.rm_flag.get_value();
         result.push(second_byte);
 
@@ -432,7 +440,7 @@ impl RegisterToRegisterInst {
     /// Constructs a RegisterToRegisterInst from two bytes
     pub fn from_bytes(high_byte: u8, low_byte: u8) -> Result<RegisterToRegisterInst, String> {
         let instruction_value = high_byte & OPCODE_MASK;
-        let Some((instruction_mnemonic, _)) = OpCode::from_binary(instruction_value) else {
+        let Some((instruction_mnemonic, _)) = OpCode::from_binary(instruction_value, None) else {
             return Err(format!(
                 "Invalid instruction of value {} is not a known instruction.",
                 instruction_value
