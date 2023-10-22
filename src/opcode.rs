@@ -26,6 +26,8 @@ pub enum OpCode {
     Add,
     /// Sub DST, SRC (substraction)
     Sub,
+    /// Cmp DST, SRC (comparison)
+    Cmp,
     /// Represents an unrecognized instruction.
     Unknown,
 }
@@ -48,6 +50,7 @@ impl OpCode {
             0b_0010_0010 => Some((Self::Mov, OpKind::MemoryOrRegToReg)),
             0b_0000_0000 => Some((Self::Add, OpKind::MemoryOrRegToReg)),
             0b_0000_1010 => Some((Self::Sub, OpKind::MemoryOrRegToReg)),
+            0b_0000_1110 => Some((Self::Cmp, OpKind::MemoryOrRegToReg)),
             _ => {
                 match immediate_register_or_memory_op {
                     0b_0011_0001 => Some((Self::Mov, OpKind::ImmediateToRegisterOrMemory)),
@@ -62,8 +65,11 @@ impl OpCode {
                                     0b_0000_0000 => {
                                         Some((Self::Add, OpKind::ImmediateToRegisterOrMemory))
                                     }
-                                    0b_0011_1000 => None, // TODO: CMP
-                                    // 3 middle bits are 1s for sub
+                                    // 3 middle bits are 1s for cmp
+                                    0b_0011_1000 => {
+                                        Some((Self::Cmp, OpKind::ImmediateToRegisterOrMemory))
+                                    }
+                                    // 3 middle bits are 101 for sub
                                     0b_0010_1000 => {
                                         Some((Self::Sub, OpKind::ImmediateToRegisterOrMemory))
                                     }
@@ -89,6 +95,7 @@ impl OpCode {
                 Self::Mov => Some(0b_1000_1000),
                 Self::Add => Some(0b_0000_0000),
                 Self::Sub => Some(0b_0010_1000),
+                Self::Cmp => Some(0b_0011_1000),
                 _ => None,
             },
             OpKind::ImmediateRegister => match self {
@@ -99,6 +106,7 @@ impl OpCode {
                 Self::Mov => Some(0b_1100_0011),
                 Self::Add => Some(0b_1000_0000),
                 Self::Sub => Some(0b_1000_0000),
+                Self::Cmp => Some(0b_1000_0000),
                 _ => None,
             },
             _ => None,
