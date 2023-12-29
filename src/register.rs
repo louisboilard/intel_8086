@@ -38,6 +38,8 @@ pub enum Register {
     Bp,
     Si,
     Di,
+    /// Ip -> Instruction Pointer.
+    Ip,
     /// An unrecognized register.
     Unknown,
 }
@@ -69,6 +71,7 @@ impl FromStr for Register {
             "bp" => Ok(Self::Bp),
             "si" => Ok(Self::Si),
             "di" => Ok(Self::Di),
+            "ip" => Ok(Self::Ip),
             _ => Err(()),
         }
     }
@@ -109,5 +112,80 @@ impl Register {
             },
             _ => Self::Unknown,
         }
+    }
+}
+
+/// Registers: registers and their values
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct Registers {
+    ax: u16,
+    al: u8,
+    ah: u8,
+    bx: u16,
+    bl: u8,
+    bh: u8,
+    cx: u16,
+    cl: u8,
+    ch: u8,
+    dx: u16,
+    dl: u8,
+    dh: u8,
+    sp: u16,
+    bp: u16,
+    si: u16,
+    di: u16,
+    ip: u16,
+}
+
+impl Registers {
+    pub fn new() -> Self {
+        Self {
+            ax: 0,
+            al: 0,
+            ah: 0,
+            bx: 0,
+            bl: 0,
+            bh: 0,
+            cx: 0,
+            cl: 0,
+            ch: 0,
+            dx: 0,
+            dl: 0,
+            dh: 0,
+            sp: 0,
+            bp: 0,
+            si: 0,
+            di: 0,
+            ip: 0,
+        }
+    }
+
+    /// Given a Register variant, update the corresponding struct member.
+    pub fn update_from_register(&mut self, register: &Register, value: u16) {
+        match register {
+            Register::Ax => self.ax = value,
+            Register::Al => self.al = value as u8,
+            Register::Ah => self.ah = value as u8,
+            Register::Bx => self.bx = value,
+            Register::Bl => self.bl = value as u8,
+            Register::Bh => self.bh = value as u8,
+            Register::Cx => self.cx = value,
+            Register::Cl => self.cl = value as u8,
+            Register::Ch => self.ch = value as u8,
+            Register::Dx => self.dx = value,
+            Register::Dl => self.dl = value as u8,
+            Register::Dh => self.dh = value as u8,
+            Register::Sp => self.sp = value,
+            Register::Bp => self.bp = value,
+            Register::Si => self.si = value,
+            Register::Di => self.di = value,
+            Register::Ip => self.ip = value,
+            Register::Unknown => (),
+        }
+    }
+
+    pub fn update_instr_ptr(&mut self, value: u16) {
+        self.ip = value;
     }
 }
