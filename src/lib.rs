@@ -8,11 +8,14 @@
 
 mod bitflag;
 pub mod instructions;
+mod memory;
 mod opcode;
 mod register;
 
 use crate::opcode::{OpCode, OpKind};
 use instructions::*;
+use memory::Memory;
+use register::Registers;
 
 /// Takes in an arbitrary number of 16 bits machine code instructions
 /// `Returns a Vec<Instruction>`
@@ -93,6 +96,18 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
     }
 
     Ok(instructions_vec)
+}
+
+/// Runs `execute` on an vec of instructions, updating IP during the traversal
+/// for simulation purposes.
+pub fn execute_instructions(instructions: Vec<Instruction>) {
+    let mem = Memory::new();
+    let registers = Registers::new();
+    for inst in instructions.iter() {
+        inst.execute(&mem, &registers)
+            .expect("couldn't execute instruction");
+        inst.get_width().expect("could not get instruction's width");
+    }
 }
 
 // ***********************************************************************
