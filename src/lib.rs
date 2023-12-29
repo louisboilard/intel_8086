@@ -21,7 +21,11 @@ pub fn read_instructions(instructions: &[u8]) -> Result<Vec<Instruction>, String
     let nb_instructions = instructions.len() / INSTRUCTION_SIZE;
     let mut instructions_vec: Vec<Instruction> = Vec::with_capacity(nb_instructions);
 
+    // For any given iteration, the index also holds the value of the IP register
+    // for that iteration.
+    // (IP holds the index of the first/starting byte of the next instruction).
     let mut index = 0;
+
     while index < instructions.len() {
         match OpCode::from_binary(instructions[index], None) {
             Some((_, op_kind)) => match op_kind {
