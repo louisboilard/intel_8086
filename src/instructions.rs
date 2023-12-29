@@ -49,7 +49,7 @@ pub trait Instructionable {
     /// Converts instruction to it's ASM equivalent
     fn disassemble(&self) -> Option<String>;
 
-    /// converts instruction to it's asm equivalent
+    /// executes an instruction
     fn execute(&self, memory: &Memory, registers: &Registers) -> Result<(), String>;
 }
 

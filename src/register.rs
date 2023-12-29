@@ -185,7 +185,8 @@ impl Registers {
         }
     }
 
+    /// Updates the instruction pointer register.
     pub fn update_instr_ptr(&mut self, value: usize) {
-        self.ip = value as u16;
+        self.ip += value as u16;
     }
 }

@@ -104,15 +104,11 @@ pub fn execute_instructions(instructions: Vec<Instruction>) {
     let mem = Memory::new();
     let mut registers = Registers::new();
 
-    let mut inst_iter = instructions.iter().peekable();
-    while let Some(inst) = inst_iter.next() {
-        // update ip for future inst
-        if let Some(next_inst) = inst_iter.peek() {
-            let next_ip = next_inst
-                .get_width()
-                .expect("could not get next instruction's width");
-            registers.update_instr_ptr(next_ip);
-        }
+    for inst in instructions.iter() {
+        let width = inst
+            .get_width()
+            .expect("could not get next instruction's width");
+        registers.update_instr_ptr(width);
         inst.execute(&mem, &registers)
             .expect("couldn't execute instruction");
     }
