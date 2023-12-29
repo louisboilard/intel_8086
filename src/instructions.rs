@@ -2,8 +2,9 @@ use std::fmt;
 use std::fmt::Display;
 
 use crate::bitflag::Flag;
+use crate::memory::Memory;
 use crate::opcode::{OpCode, OpKind};
-use crate::register::Register;
+use crate::register::{Register, Registers};
 
 // Instruction size in bytes
 pub const INSTRUCTION_SIZE: usize = 2;
@@ -47,6 +48,9 @@ pub trait Instructionable {
 
     /// Converts instruction to it's ASM equivalent
     fn disassemble(&self) -> Option<String>;
+
+    /// converts instruction to it's asm equivalent
+    fn execute(&self, memory: &Memory, registers: &Registers) -> Result<(), String>;
 }
 
 // Used to do concrete type evaluation at runtime instead of dynamic dispatch
@@ -64,6 +68,18 @@ pub enum Instruction {
     ImmediateToRegisterOrMemory(ImmediateToRegisterMemInst),
     /// Unknown instruction
     UNKNOWN,
+}
+
+impl Instruction {
+    pub fn get_width(&self) -> Result<usize, String> {
+        // Dispatches get_width() to the associated instruction type
+        match self {
+            Self::RegisterToRegister(inst) => Ok(inst.get_width()),
+            Self::ImmediateToRegister(inst) => Ok(inst.get_width()),
+            Self::ImmediateToRegisterOrMemory(inst) => Ok(inst.get_width()),
+            _ => Err("No matching instruction to get width".to_owned()),
+        }
+    }
 }
 
 impl Instructionable for Instruction {
@@ -88,6 +104,17 @@ impl Instructionable for Instruction {
             Self::ImmediateToRegister(inst) => inst.disassemble(),
             Self::ImmediateToRegisterOrMemory(inst) => inst.disassemble(),
             _ => None,
+        }
+    }
+
+    /// Executes the given instruction
+    fn execute(&self, memory: &Memory, registers: &Registers) -> Result<(), String> {
+        // Dispatches execute() to the associated instruction type
+        match self {
+            Self::RegisterToRegister(inst) => inst.execute(memory, registers),
+            Self::ImmediateToRegister(inst) => inst.execute(memory, registers),
+            Self::ImmediateToRegisterOrMemory(inst) => inst.execute(memory, registers),
+            _ => Err("No matching instruction to execute".to_owned()),
         }
     }
 }
@@ -168,7 +195,7 @@ impl ImmediateRegisterInst {
 impl Instructionable for ImmediateRegisterInst {
     fn assemble(&self) -> Result<Vec<u8>, String> {
         let data_byte = self.data_lo;
-        // seems like nasm always produces data_hi regardless of mode
+        // NOTE: seems like nasm always produces data_hi regardless of mode
         let data_hi = self.data_hi;
 
         let mut first_byte = OpCode::to_byte(self.mnemonic, OpKind::ImmediateRegister).unwrap();
@@ -196,6 +223,16 @@ impl Instructionable for ImmediateRegisterInst {
 
         asm += data_.to_string().as_str();
         Some(asm)
+    }
+
+    fn execute(&self, _: &Memory, _: &Registers) -> Result<(), String> {
+        match self.mnemonic {
+            OpCode::Mov => {
+                // let dst = Register::from_flags(self.w_flag.get_value(), self.reg_flag.get_value());
+                Ok(())
+            }
+            op => Err(format!("Simulation for {} is unimplemented", op)),
+        }
     }
 }
 
@@ -391,6 +428,16 @@ impl Instructionable for ImmediateToRegisterMemInst {
         asm += self.data.to_string().as_str();
         Some(asm)
     }
+
+    fn execute(&self, _: &Memory, _: &Registers) -> Result<(), String> {
+        match self.mnemonic {
+            OpCode::Mov => {
+                // let dst = Register::from_flags(self.w_flag.get_value(), self.rm_flag.get_value());
+                Ok(())
+            }
+            op => Err(format!("Simulation for {} is unimplemented", op)),
+        }
+    }
 }
 
 /// An intel_8086 Register to Register Instruction
@@ -509,6 +556,13 @@ impl Instructionable for RegisterToRegisterInst {
         let src = Register::from_flags(self.w_flag.get_value(), self.reg_flag.get_value());
         asm += src.to_string().to_ascii_lowercase().as_str();
         Some(asm)
+    }
+
+    fn execute(&self, _: &Memory, _: &Registers) -> Result<(), String> {
+        match self.mnemonic {
+            OpCode::Mov => Ok(()),
+            op => Err(format!("Simulation for {} is unimplemented", op)),
+        }
     }
 }
 

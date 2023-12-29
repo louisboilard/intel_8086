@@ -185,7 +185,7 @@ impl Registers {
         }
     }
 
-    pub fn update_instr_ptr(&mut self, value: u16) {
-        self.ip = value;
+    pub fn update_instr_ptr(&mut self, value: usize) {
+        self.ip = value as u16;
     }
 }
