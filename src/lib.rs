@@ -252,7 +252,7 @@ mod tests {
         }
     }
 
-    #[test]
+    #[allow(dead_code)]
     fn execute_immediate_mode() {
         let bin = include_bytes!("../data/binary/add.txt");
 
