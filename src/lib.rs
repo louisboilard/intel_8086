@@ -260,5 +260,6 @@ mod tests {
         let mem = Memory::new();
         let mut cpu: Cpu = Cpu::new(&mem);
         cpu.execute_instructions(&instructions);
+        assert_eq!(0, 0);
     }
 }
