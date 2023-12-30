@@ -115,22 +115,22 @@ impl Register {
     }
 }
 
-/// Registers: registers and their values
+/// Registers: registers and their associated operations
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct Registers {
+    /// Ax general purpose register
     ax: u16,
-    al: u8,
-    ah: u8,
+
+    /// Bx general purpose register
     bx: u16,
-    bl: u8,
-    bh: u8,
+
+    /// Cx general purpose register
     cx: u16,
-    cl: u8,
-    ch: u8,
+
+    /// Dx general purpose register
     dx: u16,
-    dl: u8,
-    dh: u8,
+
     sp: u16,
     bp: u16,
     si: u16,
@@ -142,17 +142,9 @@ impl Registers {
     pub fn new() -> Self {
         Self {
             ax: 0,
-            al: 0,
-            ah: 0,
             bx: 0,
-            bl: 0,
-            bh: 0,
             cx: 0,
-            cl: 0,
-            ch: 0,
             dx: 0,
-            dl: 0,
-            dh: 0,
             sp: 0,
             bp: 0,
             si: 0,
