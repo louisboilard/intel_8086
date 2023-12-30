@@ -153,27 +153,94 @@ impl Registers {
         }
     }
 
-    /// Given a Register variant, update the corresponding struct member.
-    pub fn update_from_register(&mut self, register: &Register, value: u16) {
+    /// Sets the lowest byte of the 16 bit Register to the desired value
+    #[inline(always)]
+    fn set_low_byte(byte: u8, current_val: u16) -> u16 {
+        const MASK: u16 = 0b_1111_1111_0000_0000;
+        (current_val & MASK) | byte as u16
+    }
+
+    /// Gets the lowest byte of the 16 bit Register
+    #[inline(always)]
+    fn get_low_byte(value: u16) -> u8 {
+        const MASK: u16 = 0b_0000_0000_1111_1111;
+        (value & MASK) as u8
+    }
+
+    /// Sets the high byte of the 16 bit Register to the desired value
+    #[inline(always)]
+    fn set_high_byte(byte: u8, current_val: u16) -> u16 {
+        const MASK: u16 = 0b_0000_0000_1111_1111;
+        (current_val & MASK) | (byte as u16) << 8
+    }
+
+    /// Gets the high byte of the 16 bit Register
+    #[inline(always)]
+    fn get_high_byte(value: u16) -> u8 {
+        const MASK: u16 = 0b_1111_1111_0000_0000;
+        ((value & MASK) >> 8) as u8
+    }
+
+    /// Given a Register variant, update the corresponding register
+    pub fn update_register(&mut self, register: Register, value: u16) {
         match register {
             Register::Ax => self.ax = value,
-            Register::Al => self.al = value as u8,
-            Register::Ah => self.ah = value as u8,
+            Register::Al => {
+                self.ax = Self::set_low_byte(value as u8, self.ax);
+            }
+            Register::Ah => {
+                self.ax = Self::set_high_byte(value as u8, self.ax);
+            }
             Register::Bx => self.bx = value,
-            Register::Bl => self.bl = value as u8,
-            Register::Bh => self.bh = value as u8,
+            Register::Bl => {
+                self.bx = Self::set_low_byte(value as u8, self.bx);
+            }
+            Register::Bh => {
+                self.bx = Self::set_high_byte(value as u8, self.bx);
+            }
             Register::Cx => self.cx = value,
-            Register::Cl => self.cl = value as u8,
-            Register::Ch => self.ch = value as u8,
+            Register::Cl => {
+                self.cx = Self::set_low_byte(value as u8, self.cx);
+            }
+            Register::Ch => {
+                self.cx = Self::set_high_byte(value as u8, self.cx);
+            }
             Register::Dx => self.dx = value,
-            Register::Dl => self.dl = value as u8,
-            Register::Dh => self.dh = value as u8,
+            Register::Dl => {
+                self.dx = Self::set_low_byte(value as u8, self.dx);
+            }
+            Register::Dh => {
+                self.dx = Self::set_high_byte(value as u8, self.dx);
+            }
             Register::Sp => self.sp = value,
             Register::Bp => self.bp = value,
             Register::Si => self.si = value,
             Register::Di => self.di = value,
             Register::Ip => self.ip = value,
             Register::Unknown => (),
+        }
+    }
+
+    pub fn get_value(&self, register: Register) -> Option<u16> {
+        match register {
+            Register::Ax => Some(self.ax),
+            Register::Al => Some(Self::get_low_byte(self.ax) as u16),
+            Register::Ah => Some(Self::get_high_byte(self.ax) as u16),
+            Register::Bx => Some(self.bx),
+            Register::Bl => Some(Self::get_low_byte(self.bx) as u16),
+            Register::Bh => Some(Self::get_high_byte(self.bx) as u16),
+            Register::Cx => Some(self.cx),
+            Register::Cl => Some(Self::get_low_byte(self.cx) as u16),
+            Register::Ch => Some(Self::get_high_byte(self.cx) as u16),
+            Register::Dx => Some(self.dx),
+            Register::Dl => Some(Self::get_low_byte(self.dx) as u16),
+            Register::Dh => Some(Self::get_high_byte(self.dx) as u16),
+            Register::Sp => Some(self.sp),
+            Register::Bp => Some(self.bp),
+            Register::Si => Some(self.si),
+            Register::Di => Some(self.di),
+            Register::Ip => Some(self.ip),
+            Register::Unknown => None,
         }
     }
 
