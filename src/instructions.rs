@@ -6,8 +6,8 @@ use crate::memory::Memory;
 use crate::opcode::{OpCode, OpKind};
 use crate::register::{Register, Registers};
 
-// Instruction size in bytes
-pub const INSTRUCTION_SIZE: usize = 2;
+/// Minimum size of a given instruction in bytes
+pub const MIN_INSTRUCTION_SIZE: usize = 2;
 
 /* ===============================================
 *  =============== BIT MASKS =====================
@@ -50,7 +50,7 @@ pub trait Instructionable {
     fn disassemble(&self) -> Option<String>;
 
     /// executes an instruction
-    fn execute(&self, memory: &Memory, registers: &Registers) -> Result<(), String>;
+    fn execute(&self, memory: &Memory, registers: &mut Registers) -> Result<(), String>;
 }
 
 // Used to do concrete type evaluation at runtime instead of dynamic dispatch
@@ -108,7 +108,7 @@ impl Instructionable for Instruction {
     }
 
     /// Executes the given instruction
-    fn execute(&self, memory: &Memory, registers: &Registers) -> Result<(), String> {
+    fn execute(&self, memory: &Memory, registers: &mut Registers) -> Result<(), String> {
         // Dispatches execute() to the associated instruction type
         match self {
             Self::RegisterToRegister(inst) => inst.execute(memory, registers),
@@ -216,7 +216,7 @@ impl Instructionable for ImmediateRegisterInst {
         asm += ", ";
 
         let mut data_: u16 = self.data_lo as u16;
-        if self.data_hi != 0 {
+        if self.w_flag.get_value() == 1 {
             // Big endian.
             data_ = ((self.data_hi as u16) << 8) | self.data_lo as u16;
         }
@@ -225,10 +225,32 @@ impl Instructionable for ImmediateRegisterInst {
         Some(asm)
     }
 
-    fn execute(&self, _: &Memory, _: &Registers) -> Result<(), String> {
+    fn execute(&self, _: &Memory, registers: &mut Registers) -> Result<(), String> {
+        let reg = Register::from_flags(self.w_flag.get_value(), self.reg_flag.get_value());
+
+        let mut data: u16 = self.data_lo as u16;
+        if self.w_flag.get_value() == 1 {
+            data = ((self.data_hi as u16) << 8) | self.data_lo as u16;
+        }
         match self.mnemonic {
             OpCode::Mov => {
-                // let dst = Register::from_flags(self.w_flag.get_value(), self.reg_flag.get_value());
+                registers.update_register(reg, data);
+                Ok(())
+            }
+            OpCode::Add => {
+                if let Some(val) = registers.get_value(reg) {
+                    if let Some(result) = data.checked_add(val) {
+                        registers.update_register(reg, result);
+                    }
+                }
+                Ok(())
+            }
+            OpCode::Sub => {
+                if let Some(val) = registers.get_value(reg) {
+                    if let Some(result) = data.checked_sub(val) {
+                        registers.update_register(reg, result);
+                    }
+                }
                 Ok(())
             }
             op => Err(format!("Simulation for {} is unimplemented", op)),
@@ -429,10 +451,33 @@ impl Instructionable for ImmediateToRegisterMemInst {
         Some(asm)
     }
 
-    fn execute(&self, _: &Memory, _: &Registers) -> Result<(), String> {
+    fn execute(&self, _: &Memory, registers: &mut Registers) -> Result<(), String> {
+        let dst = Register::from_flags(self.w_flag.get_value(), self.rm_flag.get_value());
+
+        let mut data: u16 = self.data as u16;
+        if let Some(data_high) = self.data_hi {
+            data = ((data_high as u16) << 8) | self.data as u16;
+        }
+
         match self.mnemonic {
             OpCode::Mov => {
-                // let dst = Register::from_flags(self.w_flag.get_value(), self.rm_flag.get_value());
+                registers.update_register(dst, data);
+                Ok(())
+            }
+            OpCode::Add => {
+                if let Some(val) = registers.get_value(dst) {
+                    if let Some(result) = data.checked_add(val) {
+                        registers.update_register(dst, result);
+                    }
+                }
+                Ok(())
+            }
+            OpCode::Sub => {
+                if let Some(val) = registers.get_value(dst) {
+                    if let Some(result) = data.checked_sub(val) {
+                        registers.update_register(dst, result);
+                    }
+                }
                 Ok(())
             }
             op => Err(format!("Simulation for {} is unimplemented", op)),
@@ -471,7 +516,7 @@ impl RegisterToRegisterInst {
     ) -> Self {
         Self {
             mnemonic,
-            width: INSTRUCTION_SIZE,
+            width: MIN_INSTRUCTION_SIZE,
             d_flag,
             w_flag,
             mod_flag,
@@ -558,9 +603,34 @@ impl Instructionable for RegisterToRegisterInst {
         Some(asm)
     }
 
-    fn execute(&self, _: &Memory, _: &Registers) -> Result<(), String> {
+    fn execute(&self, _: &Memory, registers: &mut Registers) -> Result<(), String> {
+        let dst = Register::from_flags(self.w_flag.get_value(), self.rm_flag.get_value());
+        let src = Register::from_flags(self.w_flag.get_value(), self.reg_flag.get_value());
+
+        let src_val = registers
+            .get_value(src)
+            .expect("could not value of src register");
+        let dst_val = registers
+            .get_value(dst)
+            .expect("could not value of dst register");
+
         match self.mnemonic {
-            OpCode::Mov => Ok(()),
+            OpCode::Mov => {
+                registers.update_register(dst, src_val);
+                Ok(())
+            }
+            OpCode::Add => {
+                if let Some(result) = dst_val.checked_add(src_val) {
+                    registers.update_register(dst, result);
+                }
+                Ok(())
+            }
+            OpCode::Sub => {
+                if let Some(result) = dst_val.checked_sub(src_val) {
+                    registers.update_register(dst, result);
+                }
+                Ok(())
+            }
             op => Err(format!("Simulation for {} is unimplemented", op)),
         }
     }
